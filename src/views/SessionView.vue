@@ -6,6 +6,7 @@ import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import SessionTypeBadge from '@/components/ui/SessionTypeBadge.vue'
 import IntensityBar from '@/components/ui/IntensityBar.vue'
 import BlockList from '@/components/session/BlockList.vue'
+import BlockDrawer from '@/components/editor/BlockDrawer.vue'
 import type { ResolvedBlock } from '@/types'
 
 const route = useRoute()
@@ -65,6 +66,12 @@ const dayLabels = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samed
       </div>
 
       <BlockList :blocks="blocks" :on-edit="(b) => (editingBlock = b)" />
+
+      <BlockDrawer
+        v-if="editingBlock"
+        :block="editingBlock"
+        @close="editingBlock = null"
+      />
     </template>
   </div>
 </template>
