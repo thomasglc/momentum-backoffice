@@ -19,9 +19,9 @@ export const useAuthStore = defineStore('auth', () => {
       const t = await directus.getToken()
       token.value = t
       if (t) localStorage.setItem('auth_token', t)
-    } catch (e) {
+    } catch (err) {
       error.value = 'Identifiants incorrects'
-      throw e
+      throw err
     } finally {
       isLoading.value = false
     }

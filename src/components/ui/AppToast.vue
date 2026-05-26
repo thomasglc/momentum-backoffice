@@ -17,20 +17,20 @@ defineExpose({ show })
 
 <template>
   <div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-    <Transition
-      v-for="toast in toasts"
-      :key="toast.id"
+    <TransitionGroup
       enter-from-class="opacity-0 translate-y-2"
       enter-active-class="transition duration-200"
       leave-to-class="opacity-0 translate-y-2"
       leave-active-class="transition duration-200"
     >
       <div
+        v-for="toast in toasts"
+        :key="toast.id"
         class="px-4 py-3 rounded-lg shadow-md text-sm font-medium text-white"
         :class="toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'"
       >
         {{ toast.message }}
       </div>
-    </Transition>
+    </TransitionGroup>
   </div>
 </template>

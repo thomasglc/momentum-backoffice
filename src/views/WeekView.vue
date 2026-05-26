@@ -16,12 +16,7 @@ onMounted(async () => {
   if (!store.currentPlan) await store.loadPlan(planId)
 })
 
-const week = computed(() => {
-  const w = store.getWeekById(weekId)
-  // eslint-disable-next-line no-console
-  console.log('[WeekView] week:', w, '| sessions:', w?.sessions)
-  return w
-})
+const week = computed(() => store.getWeekById(weekId))
 
 const breadcrumb = computed(() => [
   { label: 'Plans', to: '/plans' },

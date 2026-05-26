@@ -17,14 +17,23 @@ const sessionId = Number(route.params.sessionId)
 
 const editingBlock = ref<ResolvedBlock | null>(null)
 
-onMounted(() => store.loadSession(sessionId))
+onMounted(async () => {
+  if (!store.currentPlan) await store.loadPlan(planId)
+  await store.loadSession(sessionId)
+})
 
 const session = computed(() => store.currentSession)
 const blocks = computed(() => store.currentBlocks)
 
+const week = computed(() => {
+  const weekId = session.value?.week_id
+  return weekId ? store.getWeekById(weekId) : null
+})
+
 const breadcrumb = computed(() => [
   { label: 'Plans', to: '/plans' },
   { label: store.currentPlan?.title ?? '…', to: `/plans/${planId}` },
+  { label: week.value ? `Semaine ${week.value.week_number}` : '…', to: week.value ? `/plans/${planId}/weeks/${week.value.id}` : undefined },
   { label: session.value?.title ?? '…' },
 ])
 

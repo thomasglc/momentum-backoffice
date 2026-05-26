@@ -8,6 +8,7 @@ import BlockMiniRace from './blocks/BlockMiniRace.vue'
 import BlockStationActivation from './blocks/BlockStationActivation.vue'
 import BlockStationBlock from './blocks/BlockStationBlock.vue'
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const props = defineProps<{
   blocks: ResolvedBlock[]
   onEdit?: (block: ResolvedBlock) => void

@@ -1,4 +1,4 @@
-import { createDirectus, rest, authentication, readItems, readItem, updateItem } from '@directus/sdk'
+import { createDirectus, rest, authentication, readItems, readItem, updateItem, withToken } from '@directus/sdk'
 import type { Plan, AnyBlock, BlockType } from '@/types'
 
 const BASE_URL = import.meta.env.DEV ? `${window.location.origin}/api` : 'http://localhost:8056'
@@ -6,6 +6,10 @@ const BASE_URL = import.meta.env.DEV ? `${window.location.origin}/api` : 'http:/
 const client = createDirectus(BASE_URL)
   .with(authentication('json'))
   .with(rest())
+
+function getToken(): string {
+  return localStorage.getItem('auth_token') ?? ''
+}
 
 // Restaure le token après un rechargement de page
 const savedToken = localStorage.getItem('auth_token')
@@ -30,76 +34,112 @@ export function useDirectus() {
     return client.logout()
   }
 
-  async function getToken(): Promise<string | null> {
+  async function fetchToken(): Promise<string | null> {
     return client.getToken()
   }
 
   async function fetchPlans(): Promise<Plan[]> {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      readItems('plans' as any, { fields: ['*'] })
+      withToken(getToken(), readItems('plans' as any, { fields: ['*'] }))
     ) as unknown as Promise<Plan[]>
   }
 
   async function fetchPlan(id: number): Promise<Plan> {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      readItem('plans' as any, id, {
+      withToken(getToken(), readItem('plans' as any, id, {
         fields: ['*', 'weeks.*', 'weeks.sessions.*'],
-      })
+      }))
     ) as unknown as Promise<Plan>
   }
 
   async function fetchSession(id: number) {
-    return client.request(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      readItem('sessions' as any, id, {
-        fields: ['*', 'blocks.*'],
-      })
-    )
+    const [session, blocks] = await Promise.all([
+      client.request(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        withToken(getToken(), readItem('sessions' as any, id, { fields: ['*'] }))
+      ),
+      client.request(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        withToken(getToken(), readItems('session_blocks' as any, {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          filter: { session_id: { _eq: id } } as any,
+          fields: ['*'],
+          sort: ['position'],
+        }))
+      ),
+    ])
+    return { ...(session as object), blocks }
   }
 
   async function fetchBlock(blockType: BlockType, blockId: number): Promise<AnyBlock> {
-    const fieldsMap: Record<BlockType, string[]> = {
-      block_cardio: ['*'],
-      block_intervals: ['*'],
-      block_strength: ['*', 'exercises.*', 'exercises.exercise_id.*'],
-      block_circuit: ['*', 'stations.*', 'stations.station_id.*'],
-      block_mini_race: ['*', 'stations.*', 'stations.station_id.*'],
-      block_station_activation: ['*', 'stations.*', 'stations.station_id.*'],
-      block_station_block: ['*', 'stations.*', 'stations.station_id.*'],
-    }
-    return client.request(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const block: any = await client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      readItem(blockType as any, blockId, { fields: fieldsMap[blockType] })
-    ) as unknown as Promise<AnyBlock>
+      withToken(getToken(), readItem(blockType as any, blockId, { fields: ['*'] }))
+    )
+
+    if (blockType === 'block_strength') {
+      const exercises = await client.request(
+        withToken(getToken(), readItems('block_strength_exercises' as any, {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          filter: { block_strength_id: { _eq: blockId } } as any,
+          fields: ['*', 'exercise_id.*'],
+          sort: ['position'],
+        }))
+      )
+      return { ...block, exercises } as unknown as AnyBlock
+    }
+
+    const stationChildMap: Partial<Record<BlockType, string>> = {
+      block_circuit: 'block_circuit_stations',
+      block_mini_race: 'block_mini_race_stations',
+      block_station_activation: 'block_station_activation_entries',
+      block_station_block: 'block_station_block_entries',
+    }
+
+    const childCollection = stationChildMap[blockType]
+    if (childCollection) {
+      const stations = await client.request(
+        withToken(getToken(), readItems(childCollection as any, {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          filter: { [`${blockType}_id`]: { _eq: blockId } } as any,
+          fields: ['*', 'station_id.*'],
+          sort: ['position'],
+        }))
+      )
+      return { ...block, stations } as unknown as AnyBlock
+    }
+
+    return block as unknown as AnyBlock
   }
 
   async function updateBlock(blockType: BlockType, blockId: number, data: Partial<AnyBlock>) {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      updateItem(blockType as any, blockId, data as any)
+      withToken(getToken(), updateItem(blockType as any, blockId, data as any))
     )
   }
 
   async function fetchStationCatalog() {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      readItems('station_catalog' as any, { fields: ['*'], limit: -1 })
+      withToken(getToken(), readItems('station_catalog' as any, { fields: ['*'], limit: -1 }))
     )
   }
 
   async function fetchExerciseCatalog() {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      readItems('exercise_catalog' as any, { fields: ['*'], limit: -1 })
+      withToken(getToken(), readItems('exercise_catalog' as any, { fields: ['*'], limit: -1 }))
     )
   }
 
   return {
     login,
     logout,
-    getToken,
+    getToken: fetchToken,
     fetchPlans,
     fetchPlan,
     fetchSession,

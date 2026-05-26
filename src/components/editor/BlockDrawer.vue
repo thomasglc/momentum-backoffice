@@ -28,16 +28,16 @@ const formComponents = {
   block_mini_race: FormMiniRace,
   block_station_activation: FormStationActivation,
   block_station_block: FormStationBlock,
-}
+} as const
 
 async function handleSave(data: Record<string, unknown>) {
   isSaving.value = true
   try {
-    await directus.updateBlock(props.block.meta.block_type, props.block.meta.block_id, data as any)
-    Object.assign(props.block.data, data)
+    await directus.updateBlock(props.block.meta.block_type, props.block.meta.block_id, data)
     showToastMessage('Sauvegardé', 'success')
     emit('close')
-  } catch {
+  } catch (err) {
+    console.error('Error saving block:', err)
     showToastMessage('Erreur lors de la sauvegarde', 'error')
   } finally {
     isSaving.value = false
