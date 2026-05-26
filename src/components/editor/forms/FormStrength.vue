@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import type { BlockStrength, ExerciseCatalog } from '@/types'
 import { useDirectus } from '@/composables/useDirectus'
 
@@ -55,6 +55,23 @@ const rows = ref<ExerciseRow[]>(
     note: ex.note,
   }))
 )
+
+function formatCategory(raw: string | null): string {
+  if (!raw) return 'Autre'
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
+const catalogByCategory = computed(() => {
+  const map = new Map<string, ExerciseCatalog[]>()
+  for (const ex of catalog.value) {
+    const key = ex.category ?? ''
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(ex)
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => formatCategory(a).localeCompare(formatCategory(b)))
+    .map(([key, exercises]) => ({ label: formatCategory(key || null), exercises }))
+})
 
 onMounted(async () => {
   catalog.value = (await directus.fetchExerciseCatalog()) as ExerciseCatalog[]
@@ -163,7 +180,9 @@ function handleSubmit() {
               @change="onCatalogChange(row, Number(($event.target as HTMLSelectElement).value))"
               class="flex-1 px-2 py-1.5 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option v-for="c in catalog" :key="c.id" :value="c.id">{{ c.name }}</option>
+              <optgroup v-for="group in catalogByCategory" :key="group.label" :label="group.label">
+                <option v-for="c in group.exercises" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </optgroup>
             </select>
             <button type="button" @click="removeRow(row)" class="text-slate-400 hover:text-red-500 transition-colors p-1">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed, watch, ref } from 'vue'
+import { onMounted, onUnmounted, computed, watch, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlanStore } from '@/stores/plan'
 import { useDirectus } from '@/composables/useDirectus'
@@ -42,6 +42,16 @@ const currentIndex = computed(() => allWeeks.value.findIndex((w) => w.id === wee
 const prevWeek = computed(() => allWeeks.value[currentIndex.value - 1])
 const nextWeek = computed(() => allWeeks.value[currentIndex.value + 1])
 
+// ── Keyboard navigation ──────────────────────────────────────────────────────
+function onKeyDown(e: KeyboardEvent) {
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return
+  if (e.key === 'ArrowLeft' && prevWeek.value) router.push(`/plans/${planId.value}/weeks/${prevWeek.value.id}`)
+  if (e.key === 'ArrowRight' && nextWeek.value) router.push(`/plans/${planId.value}/weeks/${nextWeek.value.id}`)
+}
+
+onMounted(() => window.addEventListener('keydown', onKeyDown))
+onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
+
 // ── Delete session ───────────────────────────────────────────────────────────
 const pendingDeleteId = ref<number | null>(null)
 let cancelTimer: ReturnType<typeof setTimeout> | null = null
@@ -69,6 +79,43 @@ async function confirmDelete(sessionId: number) {
     await directus.deleteSession(sessionId)
   } catch {
     await store.loadPlan(planId.value)
+  }
+}
+
+// ── Edit week ────────────────────────────────────────────────────────────────
+const editingWeek = ref(false)
+const editTheme = ref('')
+const editNote = ref('')
+const editIsDeload = ref(false)
+const isSavingWeek = ref(false)
+
+function openEditWeek() {
+  editTheme.value = week.value?.theme ?? ''
+  editNote.value = week.value?.week_note ?? ''
+  editIsDeload.value = !!week.value?.is_deload
+  editingWeek.value = true
+}
+
+async function saveWeek() {
+  if (!week.value) return
+  isSavingWeek.value = true
+  const w = store.currentPlan?.weeks.find(w => w.id === weekId.value)
+  if (w) {
+    w.theme = editTheme.value || undefined as any
+    w.week_note = editNote.value || undefined as any
+    w.is_deload = editIsDeload.value
+  }
+  editingWeek.value = false
+  try {
+    await directus.updateCollectionItem('weeks', week.value.id, {
+      theme: editTheme.value || null,
+      week_note: editNote.value || null,
+      is_deload: editIsDeload.value,
+    })
+  } catch {
+    await store.loadPlan(planId.value)
+  } finally {
+    isSavingWeek.value = false
   }
 }
 
@@ -123,7 +170,7 @@ async function submitAdd() {
 
     <template v-else>
       <div class="flex items-start justify-between mb-6">
-        <div>
+        <div class="flex-1 min-w-0">
           <div class="flex items-center gap-3 mb-1">
             <h1 class="text-xl font-semibold text-slate-900">Semaine {{ week.week_number }}</h1>
             <span class="text-sm text-slate-400">Phase {{ week.phase }}</span>
@@ -133,25 +180,91 @@ async function submitAdd() {
             >
               Décharge
             </span>
+            <button
+              v-if="!editingWeek"
+              @click="openEditWeek"
+              class="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-3 1 1-3a4 4 0 01.828-1.414z" />
+              </svg>
+              Modifier
+            </button>
           </div>
-          <p v-if="week.theme" class="text-slate-600">{{ week.theme }}</p>
-          <p v-if="week.week_note" class="text-sm text-slate-400 mt-1 italic">{{ week.week_note }}</p>
+
+          <!-- Affichage normal -->
+          <template v-if="!editingWeek">
+            <p v-if="week.theme" class="text-slate-600">{{ week.theme }}</p>
+            <p v-if="week.week_note" class="text-sm text-slate-400 mt-1 italic">{{ week.week_note }}</p>
+          </template>
+
+          <!-- Formulaire d'édition inline -->
+          <div v-else class="mt-2 space-y-2 max-w-md">
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">Thème</label>
+              <input
+                v-model="editTheme"
+                type="text"
+                placeholder="Ex : Découverte & apprentissage"
+                @keydown.enter="saveWeek"
+                @keydown.esc="editingWeek = false"
+                class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                autofocus
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">Note coach</label>
+              <textarea
+                v-model="editNote"
+                rows="2"
+                placeholder="Ex : Charge 50%, focus technique"
+                @keydown.esc="editingWeek = false"
+                class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              />
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input v-model="editIsDeload" type="checkbox" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" />
+              <span class="text-sm text-slate-600">Semaine de décharge</span>
+            </label>
+            <div class="flex gap-2 pt-1">
+              <button
+                @click="saveWeek"
+                :disabled="isSavingWeek"
+                class="px-4 py-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
+              >
+                Enregistrer
+              </button>
+              <button
+                @click="editingWeek = false"
+                class="px-4 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="flex items-center gap-2">
           <button
             v-if="prevWeek"
             @click="router.push(`/plans/${planId}/weeks/${prevWeek.id}`)"
-            class="px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors shadow-sm cursor-pointer"
           >
-            ← S{{ prevWeek.week_number }}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Semaine {{ prevWeek.week_number }}
           </button>
           <button
             v-if="nextWeek"
             @click="router.push(`/plans/${planId}/weeks/${nextWeek.id}`)"
-            class="px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors shadow-sm cursor-pointer"
           >
-            S{{ nextWeek.week_number }} →
+            Semaine {{ nextWeek.week_number }}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
           </button>
         </div>
       </div>
