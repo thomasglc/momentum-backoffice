@@ -19,7 +19,7 @@ const avgIntensity = computed(() => {
   <RouterLink
     :to="`/plans/${planId}/weeks/${week.id}`"
     class="block bg-white border rounded-xl p-4 hover:border-indigo-300 hover:shadow-sm transition-all"
-    :class="week.is_deload ? 'border-amber-200 bg-amber-50/50' : 'border-slate-200'"
+    :class="week.is_deload ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200'"
   >
     <div class="flex items-start justify-between gap-2 mb-2">
       <div>
@@ -28,7 +28,7 @@ const avgIntensity = computed(() => {
           <span class="text-xs text-slate-400">Phase {{ week.phase }}</span>
           <span
             v-if="week.is_deload"
-            class="text-xs font-medium px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded"
+            class="text-xs font-medium px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded"
           >
             Décharge
           </span>
@@ -47,7 +47,7 @@ const avgIntensity = computed(() => {
         v-for="i in 10"
         :key="i"
         class="h-1 flex-1 rounded-sm"
-        :class="i <= avgIntensity ? (week.is_deload ? 'bg-amber-400' : 'bg-indigo-400') : 'bg-slate-100'"
+        :class="i <= avgIntensity ? (week.is_deload ? 'bg-emerald-400' : 'bg-indigo-400') : 'bg-slate-100'"
       />
     </div>
   </RouterLink>

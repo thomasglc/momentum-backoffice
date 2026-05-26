@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlanStore } from '@/stores/plan'
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
@@ -9,18 +9,22 @@ const route = useRoute()
 const router = useRouter()
 const store = usePlanStore()
 
-const planId = Number(route.params.id)
-const weekId = Number(route.params.weekId)
+const planId = computed(() => Number(route.params.id))
+const weekId = computed(() => Number(route.params.weekId))
 
 onMounted(async () => {
-  if (!store.currentPlan) await store.loadPlan(planId)
+  if (!store.currentPlan) await store.loadPlan(planId.value)
 })
 
-const week = computed(() => store.getWeekById(weekId))
+watch(planId, async (newId) => {
+  await store.loadPlan(newId)
+})
+
+const week = computed(() => store.getWeekById(weekId.value))
 
 const breadcrumb = computed(() => [
   { label: 'Plans', to: '/plans' },
-  { label: store.currentPlan?.title ?? '…', to: `/plans/${planId}` },
+  { label: store.currentPlan?.title ?? '…', to: `/plans/${planId.value}` },
   { label: week.value ? `Semaine ${week.value.week_number}` : '…' },
 ])
 
@@ -31,7 +35,7 @@ function sessionsForDay(dayLabel: string) {
 }
 
 const allWeeks = computed(() => [...(store.currentPlan?.weeks ?? [])].sort((a, b) => a.week_number - b.week_number))
-const currentIndex = computed(() => allWeeks.value.findIndex((w) => w.id === weekId))
+const currentIndex = computed(() => allWeeks.value.findIndex((w) => w.id === weekId.value))
 const prevWeek = computed(() => allWeeks.value[currentIndex.value - 1])
 const nextWeek = computed(() => allWeeks.value[currentIndex.value + 1])
 </script>
@@ -50,7 +54,7 @@ const nextWeek = computed(() => allWeeks.value[currentIndex.value + 1])
             <span class="text-sm text-slate-400">Phase {{ week.phase }}</span>
             <span
               v-if="week.is_deload"
-              class="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full"
+              class="text-xs font-medium px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full"
             >
               Décharge
             </span>
