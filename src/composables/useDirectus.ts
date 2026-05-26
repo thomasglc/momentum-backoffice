@@ -7,6 +7,20 @@ const client = createDirectus(BASE_URL)
   .with(authentication('json'))
   .with(rest())
 
+// Restaure le token après un rechargement de page
+const savedToken = localStorage.getItem('auth_token')
+if (savedToken) {
+  client.setToken(savedToken)
+}
+
+export function isAuthError(e: unknown): boolean {
+  if (e && typeof e === 'object') {
+    const status = (e as any)?.response?.status ?? (e as any)?.status
+    return status === 401 || status === 403
+  }
+  return false
+}
+
 export function useDirectus() {
   async function login(email: string, password: string) {
     return client.login({ email, password })

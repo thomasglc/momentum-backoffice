@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { useDirectus } from '@/composables/useDirectus'
+import { useDirectus, isAuthError } from '@/composables/useDirectus'
+import { useRouter } from 'vue-router'
 import type { Plan, Session, ResolvedBlock } from '@/types'
 
 export const usePlanStore = defineStore('plan', () => {
@@ -12,14 +13,24 @@ export const usePlanStore = defineStore('plan', () => {
   const error = ref<string | null>(null)
 
   const directus = useDirectus()
+  const router = useRouter()
+
+  function handleError(e: unknown, message: string) {
+    if (isAuthError(e)) {
+      localStorage.removeItem('auth_token')
+      router.push('/login')
+      return
+    }
+    error.value = message
+  }
 
   async function loadPlans() {
     isLoading.value = true
     error.value = null
     try {
       plans.value = await directus.fetchPlans()
-    } catch {
-      error.value = 'Erreur chargement plans'
+    } catch (e) {
+      handleError(e, 'Erreur chargement plans')
     } finally {
       isLoading.value = false
     }
@@ -29,18 +40,9 @@ export const usePlanStore = defineStore('plan', () => {
     isLoading.value = true
     error.value = null
     try {
-      const plan = await directus.fetchPlan(id)
-      // eslint-disable-next-line no-console
-      console.log('[planStore] plan loaded:', plan)
-      // eslint-disable-next-line no-console
-      console.log('[planStore] weeks count:', (plan as any).weeks?.length)
-      // eslint-disable-next-line no-console
-      console.log('[planStore] first week sessions:', (plan as any).weeks?.[0]?.sessions)
-      currentPlan.value = plan
+      currentPlan.value = await directus.fetchPlan(id)
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('[planStore] loadPlan error:', e)
-      error.value = 'Erreur chargement plan'
+      handleError(e, 'Erreur chargement plan')
     } finally {
       isLoading.value = false
     }
@@ -68,8 +70,8 @@ export const usePlanStore = defineStore('plan', () => {
         )
         currentBlocks.value = resolved
       }
-    } catch {
-      error.value = 'Erreur chargement session'
+    } catch (e) {
+      handleError(e, 'Erreur chargement session')
     } finally {
       isLoading.value = false
     }
