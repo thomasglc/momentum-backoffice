@@ -1,4 +1,4 @@
-import { createDirectus, rest, authentication, readItems, readItem, updateItem, withToken } from '@directus/sdk'
+import { createDirectus, rest, authentication, readItems, readItem, updateItem, withToken, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
 import type { Plan, AnyBlock, BlockType } from '@/types'
 
 const BASE_URL = import.meta.env.DEV ? `${window.location.origin}/api` : 'http://localhost:8056'
@@ -122,6 +122,27 @@ export function useDirectus() {
     )
   }
 
+  async function createCollectionItem(collection: string, data: Record<string, unknown>) {
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      withToken(getToken(), sdkCreate(collection as any, data as any))
+    )
+  }
+
+  async function updateCollectionItem(collection: string, id: number, data: Record<string, unknown>) {
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      withToken(getToken(), updateItem(collection as any, id, data as any))
+    )
+  }
+
+  async function deleteCollectionItem(collection: string, id: number) {
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      withToken(getToken(), sdkDelete(collection as any, id))
+    )
+  }
+
   async function fetchStationCatalog() {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -145,6 +166,9 @@ export function useDirectus() {
     fetchSession,
     fetchBlock,
     updateBlock,
+    createCollectionItem,
+    updateCollectionItem,
+    deleteCollectionItem,
     fetchStationCatalog,
     fetchExerciseCatalog,
   }

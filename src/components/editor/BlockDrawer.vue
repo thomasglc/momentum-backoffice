@@ -11,7 +11,7 @@ import FormStationActivation from './forms/FormStationActivation.vue'
 import FormStationBlock from './forms/FormStationBlock.vue'
 
 const props = defineProps<{ block: ResolvedBlock }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; saved: [] }>()
 
 const directus = useDirectus()
 
@@ -30,12 +30,42 @@ const formComponents = {
   block_station_block: FormStationBlock,
 } as const
 
-async function handleSave(data: Record<string, unknown>) {
+interface ItemOp {
+  collection: string
+  create: Record<string, unknown>[]
+  update: { id: number; data: Record<string, unknown> }[]
+  delete: number[]
+}
+
+async function handleSave(payload: Record<string, unknown>) {
   isSaving.value = true
   try {
-    await directus.updateBlock(props.block.meta.block_type, props.block.meta.block_id, data)
+    let blockData: Record<string, unknown>
+    let itemOps: ItemOp | undefined
+
+    if ('_block' in payload) {
+      blockData = payload._block as Record<string, unknown>
+      itemOps = payload._itemOps as ItemOp | undefined
+    } else {
+      blockData = payload
+    }
+
+    if (itemOps) {
+      for (const id of itemOps.delete ?? []) {
+        await directus.deleteCollectionItem(itemOps.collection, id)
+      }
+      for (const item of itemOps.create ?? []) {
+        await directus.createCollectionItem(itemOps.collection, item)
+      }
+      for (const op of itemOps.update ?? []) {
+        await directus.updateCollectionItem(itemOps.collection, op.id, op.data)
+      }
+    }
+
+    await directus.updateBlock(props.block.meta.block_type, props.block.meta.block_id, blockData as any)
+
     showToastMessage('Sauvegardé', 'success')
-    emit('close')
+    emit('saved')
   } catch (err) {
     console.error('Error saving block:', err)
     showToastMessage('Erreur lors de la sauvegarde', 'error')

@@ -79,6 +79,7 @@ const breadcrumb = computed(() => [
         v-if="editingBlock"
         :block="editingBlock"
         @close="editingBlock = null"
+        @saved="editingBlock = null; store.loadSession(sessionId)"
       />
     </template>
   </div>

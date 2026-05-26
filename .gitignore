@@ -37,3 +37,9 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+.vscode/extensions.json
+
+CLAUDE.md
+
+docs/superpowers/plans/2026-05-26-momentum-backoffice.md
