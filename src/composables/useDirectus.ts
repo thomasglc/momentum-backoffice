@@ -1,7 +1,7 @@
 import { createDirectus, rest, authentication, readItems, readItem, updateItem } from '@directus/sdk'
 import type { Plan, AnyBlock, BlockType } from '@/types'
 
-const BASE_URL = 'http://localhost:8056'
+const BASE_URL = import.meta.env.DEV ? '/api' : 'http://localhost:8056'
 
 const client = createDirectus(BASE_URL)
   .with(authentication('json'))
@@ -22,12 +22,14 @@ export function useDirectus() {
 
   async function fetchPlans(): Promise<Plan[]> {
     return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       readItems('plans' as any, { fields: ['*'] })
     ) as unknown as Promise<Plan[]>
   }
 
   async function fetchPlan(id: number): Promise<Plan> {
     return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       readItem('plans' as any, id, {
         fields: ['*', 'weeks.*', 'weeks.sessions.*'],
       })
@@ -36,6 +38,7 @@ export function useDirectus() {
 
   async function fetchSession(id: number) {
     return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       readItem('sessions' as any, id, {
         fields: ['*', 'blocks.*'],
       })
@@ -53,20 +56,30 @@ export function useDirectus() {
       block_station_block: ['*', 'stations.*', 'stations.station_id.*'],
     }
     return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       readItem(blockType as any, blockId, { fields: fieldsMap[blockType] })
     ) as unknown as Promise<AnyBlock>
   }
 
   async function updateBlock(blockType: BlockType, blockId: number, data: Partial<AnyBlock>) {
-    return client.request(updateItem(blockType as any, blockId, data as any))
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      updateItem(blockType as any, blockId, data as any)
+    )
   }
 
   async function fetchStationCatalog() {
-    return client.request(readItems('station_catalog' as any, { fields: ['*'], limit: -1 }))
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      readItems('station_catalog' as any, { fields: ['*'], limit: -1 })
+    )
   }
 
   async function fetchExerciseCatalog() {
-    return client.request(readItems('exercise_catalog' as any, { fields: ['*'], limit: -1 }))
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      readItems('exercise_catalog' as any, { fields: ['*'], limit: -1 })
+    )
   }
 
   return {
