@@ -122,6 +122,23 @@ export function useDirectus() {
     )
   }
 
+  async function deleteSession(sessionId: number) {
+    const sbs = await client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      withToken(getToken(), readItems('session_blocks' as any, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        filter: { session_id: { _eq: sessionId } } as any,
+        fields: ['id'],
+      }))
+    ) as { id: number }[]
+    for (const sb of sbs) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await client.request(withToken(getToken(), sdkDelete('session_blocks' as any, sb.id)))
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await client.request(withToken(getToken(), sdkDelete('sessions' as any, sessionId)))
+  }
+
   async function createCollectionItem(collection: string, data: Record<string, unknown>) {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,6 +183,7 @@ export function useDirectus() {
     fetchSession,
     fetchBlock,
     updateBlock,
+    deleteSession,
     createCollectionItem,
     updateCollectionItem,
     deleteCollectionItem,

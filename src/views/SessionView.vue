@@ -19,7 +19,6 @@ const sessionId = Number(route.params.sessionId)
 
 const editingBlock = ref<ResolvedBlock | null>(null)
 const showAddPicker = ref(false)
-const isMutating = ref(false)
 
 onMounted(async () => {
   if (!store.currentPlan) await store.loadPlan(planId)
@@ -62,30 +61,33 @@ const blockDefaults: Record<BlockType, Record<string, unknown>> = {
 }
 
 async function deleteBlock(block: ResolvedBlock) {
-  isMutating.value = true
+  const idx = store.currentBlocks.findIndex(b => b.meta.id === block.meta.id)
+  if (idx !== -1) store.currentBlocks.splice(idx, 1)
   try {
     await directus.deleteCollectionItem('session_blocks', block.meta.id)
     await directus.deleteCollectionItem(block.meta.block_type, block.meta.block_id)
+  } catch {
     await store.loadSession(sessionId)
-  } finally {
-    isMutating.value = false
   }
 }
 
 async function addBlock(blockType: BlockType) {
   showAddPicker.value = false
-  isMutating.value = true
   try {
     const created = await directus.createCollectionItem(blockType, blockDefaults[blockType]) as { id: number }
-    await directus.createCollectionItem('session_blocks', {
+    const sb = await directus.createCollectionItem('session_blocks', {
       session_id: sessionId,
       block_type: blockType,
       block_id: created.id,
       position: store.currentBlocks.length + 1,
+    }) as { id: number; session_id: number; position: number; block_type: BlockType; block_id: number }
+    const blockData = await directus.fetchBlock(blockType, created.id)
+    store.currentBlocks.push({
+      meta: { id: sb.id, session_id: sb.session_id, position: sb.position, block_type: blockType, block_id: created.id },
+      data: blockData,
     })
+  } catch {
     await store.loadSession(sessionId)
-  } finally {
-    isMutating.value = false
   }
 }
 </script>
@@ -94,7 +96,7 @@ async function addBlock(blockType: BlockType) {
   <div>
     <AppBreadcrumb :items="breadcrumb" />
 
-    <div v-if="store.isLoading || isMutating" class="text-slate-400 text-sm">Chargement…</div>
+    <div v-if="store.isLoading" class="text-slate-400 text-sm">Chargement…</div>
     <div v-else-if="store.error" class="text-red-500 text-sm">{{ store.error }}</div>
 
     <template v-else-if="session">
