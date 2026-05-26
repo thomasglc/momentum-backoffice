@@ -28,7 +28,6 @@ const breadcrumb = computed(() => [
   { label: session.value?.title ?? '…' },
 ])
 
-const dayLabels = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 </script>
 
 <template>
@@ -42,7 +41,7 @@ const dayLabels = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samed
       <div class="mb-6">
         <div class="flex items-center gap-3 mb-2">
           <SessionTypeBadge :type="session.type" />
-          <span class="text-sm text-slate-400">{{ dayLabels[session.day] }}</span>
+          <span class="text-sm text-slate-400">{{ session.day }}</span>
           <span v-if="session.optional" class="text-xs text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded">
             Optionnel
           </span>

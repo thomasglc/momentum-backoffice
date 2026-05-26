@@ -16,7 +16,12 @@ onMounted(async () => {
   if (!store.currentPlan) await store.loadPlan(planId)
 })
 
-const week = computed(() => store.getWeekById(weekId))
+const week = computed(() => {
+  const w = store.getWeekById(weekId)
+  // eslint-disable-next-line no-console
+  console.log('[WeekView] week:', w, '| sessions:', w?.sessions)
+  return w
+})
 
 const breadcrumb = computed(() => [
   { label: 'Plans', to: '/plans' },
@@ -26,11 +31,11 @@ const breadcrumb = computed(() => [
 
 const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
-function sessionsForDay(dayNum: number) {
-  return week.value?.sessions.filter((s) => s.day === dayNum) ?? []
+function sessionsForDay(dayLabel: string) {
+  return (week.value?.sessions ?? []).filter((s) => s.day === dayLabel)
 }
 
-const allWeeks = computed(() => store.currentPlan?.weeks.sort((a, b) => a.week_number - b.week_number) ?? [])
+const allWeeks = computed(() => [...(store.currentPlan?.weeks ?? [])].sort((a, b) => a.week_number - b.week_number))
 const currentIndex = computed(() => allWeeks.value.findIndex((w) => w.id === weekId))
 const prevWeek = computed(() => allWeeks.value[currentIndex.value - 1])
 const nextWeek = computed(() => allWeeks.value[currentIndex.value + 1])
@@ -82,13 +87,13 @@ const nextWeek = computed(() => allWeeks.value[currentIndex.value + 1])
           <div class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{{ dayLabel }}</div>
           <div class="space-y-2">
             <SessionCard
-              v-for="session in sessionsForDay(i + 1)"
+              v-for="session in sessionsForDay(dayLabel)"
               :key="session.id"
               :session="session"
               :plan-id="planId"
             />
             <div
-              v-if="sessionsForDay(i + 1).length === 0"
+              v-if="sessionsForDay(dayLabel).length === 0"
               class="h-12 border border-dashed border-slate-200 rounded-lg"
             />
           </div>

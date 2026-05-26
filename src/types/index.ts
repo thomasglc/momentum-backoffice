@@ -34,9 +34,9 @@ export interface Week {
 export interface Session {
   id: number
   week_id: number
-  day: number
+  day: string  // 'Lundi' | 'Mardi' | ... | 'Dimanche'
   type: SessionType
-  optional: boolean
+  optional: boolean | number
   title: string
   description: string | null
   duration_min: number | null
