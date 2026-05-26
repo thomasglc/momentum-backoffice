@@ -33,7 +33,7 @@ const blockComponents = {
     >
       <component
         :is="blockComponents[block.meta.block_type]"
-        :block="block.data"
+        :block="block.data as any"
       />
       <button
         v-if="onEdit"
