@@ -1,7 +1,9 @@
 import { createDirectus, rest, authentication, readItems, readItem, updateItem, withToken, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
 import type { Plan, AnyBlock, BlockType } from '@/types'
 
-const BASE_URL = import.meta.env.DEV ? `${window.location.origin}/api` : 'http://localhost:8056'
+const BASE_URL = import.meta.env.DEV
+  ? `${window.location.origin}/api`
+  : (import.meta.env.VITE_DIRECTUS_URL || 'http://localhost:8056')
 
 const client = createDirectus(BASE_URL)
   .with(authentication('json'))
