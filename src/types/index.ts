@@ -126,7 +126,7 @@ export interface StationEntry {
 
 export interface BlockCircuit {
   id: number
-  format: 'rounds' | 'time' | 'amrap'
+  format: 'rounds' | 'time' | 'amrap' | 'emom'
   label: string | null
   rounds: number | null
   duration_min: number | null

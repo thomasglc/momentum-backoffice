@@ -49,6 +49,7 @@ function handleSubmit() {
         <option value="rounds">Rounds</option>
         <option value="time">Temps</option>
         <option value="amrap">AMRAP</option>
+        <option value="emom">EMOM</option>
       </select>
     </div>
     <div class="grid grid-cols-3 gap-3">
