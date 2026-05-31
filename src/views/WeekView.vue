@@ -52,6 +52,57 @@ function onKeyDown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKeyDown))
 onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 
+// ── Drag & Drop ──────────────────────────────────────────────────────────────
+const draggingSessionId = ref<number | null>(null)
+const dragOverDay = ref<string | null>(null)
+const dragEnterCount = ref<Record<string, number>>({})
+
+async function moveSession(sessionId: number | null, newDay: string) {
+  if (!sessionId) return
+  const session = store.currentPlan?.weeks
+    .flatMap((w) => w.sessions)
+    .find((s) => s.id === sessionId)
+  if (!session || session.day === newDay) return
+
+  const oldDay = session.day
+  session.day = newDay
+  try {
+    await directus.updateCollectionItem('sessions', sessionId, { day: newDay })
+  } catch {
+    session.day = oldDay
+    await store.loadPlan(planId.value)
+  }
+}
+
+function onDragStart(sessionId: number) {
+  draggingSessionId.value = sessionId
+}
+
+function onDragEnd() {
+  draggingSessionId.value = null
+  dragOverDay.value = null
+  dragEnterCount.value = {}
+}
+
+function onDragEnter(dayLabel: string) {
+  dragEnterCount.value[dayLabel] = (dragEnterCount.value[dayLabel] ?? 0) + 1
+  dragOverDay.value = dayLabel
+}
+
+function onDragLeave(dayLabel: string) {
+  dragEnterCount.value[dayLabel] = Math.max((dragEnterCount.value[dayLabel] ?? 1) - 1, 0)
+  if (dragEnterCount.value[dayLabel] === 0 && dragOverDay.value === dayLabel) {
+    dragOverDay.value = null
+  }
+}
+
+function onDrop(dayLabel: string) {
+  dragEnterCount.value[dayLabel] = 0
+  moveSession(draggingSessionId.value, dayLabel)
+  draggingSessionId.value = null
+  dragOverDay.value = null
+}
+
 // ── Delete session ───────────────────────────────────────────────────────────
 const pendingDeleteId = ref<number | null>(null)
 let cancelTimer: ReturnType<typeof setTimeout> | null = null
@@ -270,14 +321,29 @@ async function submitAdd() {
       </div>
 
       <div class="grid grid-cols-7 gap-3">
-        <div v-for="(dayLabel, i) in days" :key="i" class="flex flex-col gap-2">
+        <div
+          v-for="(dayLabel, i) in days"
+          :key="i"
+          class="flex flex-col gap-2 rounded-lg transition-colors"
+          @dragenter.prevent="onDragEnter(dayLabel)"
+          @dragleave="onDragLeave(dayLabel)"
+          @dragover.prevent
+          @drop.prevent="onDrop(dayLabel)"
+          :class="{
+            'ring-2 ring-indigo-400 bg-indigo-50/40 px-1 -mx-1': dragOverDay === dayLabel && draggingSessionId !== null
+          }"
+        >
           <div class="text-xs font-semibold text-slate-400 uppercase tracking-wide">{{ dayLabel }}</div>
 
           <!-- Sessions existantes -->
           <div
             v-for="session in sessionsForDay(dayLabel)"
             :key="session.id"
-            class="group relative"
+            class="group relative transition-opacity"
+            draggable="true"
+            @dragstart="onDragStart(session.id)"
+            @dragend="onDragEnd"
+            :class="{ 'opacity-50': draggingSessionId === session.id }"
           >
             <SessionCard :session="session" :plan-id="planId" />
 
