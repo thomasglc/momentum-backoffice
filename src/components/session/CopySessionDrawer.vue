@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { VueDatePicker } from '@vuepic/vue-datepicker'
+import { fr } from 'date-fns/locale'
 import { useDirectus } from '@/composables/useDirectus'
 import type { Session, Plan, ResolvedBlock } from '@/types'
 
@@ -122,6 +123,8 @@ async function handleCopy() {
           inline
           auto-apply
           :enable-time-picker="false"
+          :locale="fr"
+          :week-start="1"
         />
       </template>
 
