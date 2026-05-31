@@ -90,8 +90,9 @@ async function handleCopy() {
   if (!target) return
   isCopying.value = true
   try {
-    await directus.copySession(props.session, props.blocks, target.weekId, target.day)
-    await store.loadPlan(props.plan.id)
+    const newSession = await directus.copySession(props.session, props.blocks, target.weekId, target.day)
+    const weekInStore = store.currentPlan?.weeks.find(w => w.id === target.weekId)
+    if (weekInStore) weekInStore.sessions.push(newSession)
     const targetWeek = props.plan.weeks.find(w => w.id === target.weekId)
     showToastMessage(`Séance copiée → Semaine ${targetWeek?.week_number} — ${target.day}`, 'success')
     setTimeout(() => emit('close'), 1500)

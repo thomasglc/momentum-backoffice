@@ -181,7 +181,7 @@ export function useDirectus() {
     blocks: ResolvedBlock[],
     targetWeekId: number,
     targetDay: string
-  ): Promise<void> {
+  ): Promise<Session> {
     // 1. Créer la nouvelle session
     const newSession = await client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -313,6 +313,7 @@ export function useDirectus() {
         )
       }
     }
+    return newSession as unknown as Session
   }
 
   return {
