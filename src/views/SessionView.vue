@@ -116,6 +116,15 @@ async function saveSession() {
     s.coach_tip = editCoachTip.value || null
     s.optional = editOptional.value
   }
+  const sessionInPlan = store.currentPlan?.weeks.flatMap(w => w.sessions).find(s => s.id === sessionId)
+  if (sessionInPlan) {
+    sessionInPlan.title = editTitle.value.trim()
+    sessionInPlan.type = editType.value
+    sessionInPlan.day = editDay.value
+    sessionInPlan.duration_min = editDurationMin.value
+    sessionInPlan.intensity_score = editIntensityScore.value
+    sessionInPlan.optional = editOptional.value
+  }
   editingSession.value = false
   try {
     await directus.updateCollectionItem('sessions', sessionId, {

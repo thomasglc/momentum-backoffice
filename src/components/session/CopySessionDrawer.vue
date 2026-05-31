@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import { fr } from 'date-fns/locale'
 import { useDirectus } from '@/composables/useDirectus'
+import { usePlanStore } from '@/stores/plan'
 import type { Session, Plan, ResolvedBlock } from '@/types'
 
 const props = defineProps<{
@@ -14,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const directus = useDirectus()
+const store = usePlanStore()
 const isCopying = ref(false)
 const selectedDate = ref<Date | null>(null)
 const selectedWeekNumber = ref<number | null>(null)
@@ -89,6 +91,7 @@ async function handleCopy() {
   isCopying.value = true
   try {
     await directus.copySession(props.session, props.blocks, target.weekId, target.day)
+    await store.loadPlan(props.plan.id)
     const targetWeek = props.plan.weeks.find(w => w.id === target.weekId)
     showToastMessage(`Séance copiée → Semaine ${targetWeek?.week_number} — ${target.day}`, 'success')
     setTimeout(() => emit('close'), 1500)
