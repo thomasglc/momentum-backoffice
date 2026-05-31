@@ -37,6 +37,18 @@ function sessionsForDay(dayLabel: string) {
   return (week.value?.sessions ?? []).filter((s) => s.day === dayLabel)
 }
 
+const weekDateRange = computed(() => {
+  const startDate = store.currentPlan?.start_date
+  const weekNumber = week.value?.week_number
+  if (!startDate || !weekNumber) return null
+  const start = new Date(startDate)
+  start.setDate(start.getDate() + (weekNumber - 1) * 7)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })
+  return `${fmt(start)} — ${fmt(end)}`
+})
+
 const allWeeks = computed(() => [...(store.currentPlan?.weeks ?? [])].sort((a, b) => a.week_number - b.week_number))
 const currentIndex = computed(() => allWeeks.value.findIndex((w) => w.id === weekId.value))
 const prevWeek = computed(() => allWeeks.value[currentIndex.value - 1])
@@ -225,6 +237,7 @@ async function submitAdd() {
           <div class="flex items-center gap-3 mb-1">
             <h1 class="text-xl font-semibold text-slate-900">Semaine {{ week.week_number }}</h1>
             <span class="text-sm text-slate-400">Phase {{ week.phase }}</span>
+            <span v-if="weekDateRange" class="text-sm text-slate-400">{{ weekDateRange }}</span>
             <span
               v-if="week.is_deload"
               class="text-xs font-medium px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full"
