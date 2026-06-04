@@ -1,23 +1,30 @@
-import { createDirectus, rest, authentication, readItems, readItem, updateItem, withToken, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
+import { createDirectus, rest, authentication, readItems, readItem, updateItem, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
 import type { Plan, AnyBlock, BlockType, Session, ResolvedBlock } from '@/types'
 
 const BASE_URL = import.meta.env.DEV
   ? `${window.location.origin}/api`
   : (import.meta.env.VITE_DIRECTUS_URL || 'http://localhost:8056')
 
+export const AUTH_STORAGE_KEY = 'directus_auth'
+
+const localStorageAuth = {
+  get() {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+    if (!raw) return null
+    try { return JSON.parse(raw) } catch { return null }
+  },
+  set(value: unknown) {
+    if (value) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(value))
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+    }
+  },
+}
+
 const client = createDirectus(BASE_URL)
-  .with(authentication('json'))
+  .with(authentication('json', { storage: localStorageAuth, autoRefresh: true }))
   .with(rest())
-
-function getToken(): string {
-  return localStorage.getItem('auth_token') ?? ''
-}
-
-// Restaure le token après un rechargement de page
-const savedToken = localStorage.getItem('auth_token')
-if (savedToken) {
-  client.setToken(savedToken)
-}
 
 export function isAuthError(e: unknown): boolean {
   if (e && typeof e === 'object') {
@@ -36,23 +43,19 @@ export function useDirectus() {
     return client.logout()
   }
 
-  async function fetchToken(): Promise<string | null> {
-    return client.getToken()
-  }
-
   async function fetchPlans(): Promise<Plan[]> {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), readItems('plans' as any, { fields: ['*'] }))
+      readItems('plans' as any, { fields: ['*'] })
     ) as unknown as Promise<Plan[]>
   }
 
   async function fetchPlan(id: number): Promise<Plan> {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), readItem('plans' as any, id, {
+      readItem('plans' as any, id, {
         fields: ['*', 'weeks.*', 'weeks.sessions.*'],
-      }))
+      })
     ) as unknown as Promise<Plan>
   }
 
@@ -60,16 +63,16 @@ export function useDirectus() {
     const [session, blocks] = await Promise.all([
       client.request(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        withToken(getToken(), readItem('sessions' as any, id, { fields: ['*'] }))
+        readItem('sessions' as any, id, { fields: ['*'] })
       ),
       client.request(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        withToken(getToken(), readItems('session_blocks' as any, {
+        readItems('session_blocks' as any, {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           filter: { session_id: { _eq: id } } as any,
           fields: ['*'],
           sort: ['position'],
-        }))
+        })
       ),
     ])
     return { ...(session as object), blocks }
@@ -79,17 +82,17 @@ export function useDirectus() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const block: any = await client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), readItem(blockType as any, blockId, { fields: ['*'] }))
+      readItem(blockType as any, blockId, { fields: ['*'] })
     )
 
     if (blockType === 'block_strength') {
       const exercises = await client.request(
-        withToken(getToken(), readItems('block_strength_exercises' as any, {
+        readItems('block_strength_exercises' as any, {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           filter: { block_strength_id: { _eq: blockId } } as any,
           fields: ['*', 'exercise_id.*'],
           sort: ['position'],
-        }))
+        })
       )
       return { ...block, exercises } as unknown as AnyBlock
     }
@@ -104,12 +107,12 @@ export function useDirectus() {
     const childCollection = stationChildMap[blockType]
     if (childCollection) {
       const stations = await client.request(
-        withToken(getToken(), readItems(childCollection as any, {
+        readItems(childCollection as any, {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           filter: { [`${blockType}_id`]: { _eq: blockId } } as any,
           fields: ['*', 'station_id.*'],
           sort: ['position'],
-        }))
+        })
       )
       return { ...block, stations } as unknown as AnyBlock
     }
@@ -120,59 +123,59 @@ export function useDirectus() {
   async function updateBlock(blockType: BlockType, blockId: number, data: Partial<AnyBlock>) {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), updateItem(blockType as any, blockId, data as any))
+      updateItem(blockType as any, blockId, data as any)
     )
   }
 
   async function deleteSession(sessionId: number) {
     const sbs = await client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), readItems('session_blocks' as any, {
+      readItems('session_blocks' as any, {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         filter: { session_id: { _eq: sessionId } } as any,
         fields: ['id'],
-      }))
+      })
     ) as { id: number }[]
     for (const sb of sbs) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await client.request(withToken(getToken(), sdkDelete('session_blocks' as any, sb.id)))
+      await client.request(sdkDelete('session_blocks' as any, sb.id))
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await client.request(withToken(getToken(), sdkDelete('sessions' as any, sessionId)))
+    await client.request(sdkDelete('sessions' as any, sessionId))
   }
 
   async function createCollectionItem(collection: string, data: Record<string, unknown>) {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), sdkCreate(collection as any, data as any))
+      sdkCreate(collection as any, data as any)
     )
   }
 
   async function updateCollectionItem(collection: string, id: number, data: Record<string, unknown>) {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), updateItem(collection as any, id, data as any))
+      updateItem(collection as any, id, data as any)
     )
   }
 
   async function deleteCollectionItem(collection: string, id: number) {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), sdkDelete(collection as any, id))
+      sdkDelete(collection as any, id)
     )
   }
 
   async function fetchStationCatalog() {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), readItems('station_catalog' as any, { fields: ['*'], limit: -1 }))
+      readItems('station_catalog' as any, { fields: ['*'], limit: -1 })
     )
   }
 
   async function fetchExerciseCatalog() {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), readItems('exercise_catalog' as any, { fields: ['*'], limit: -1 }))
+      readItems('exercise_catalog' as any, { fields: ['*'], limit: -1 })
     )
   }
 
@@ -182,10 +185,9 @@ export function useDirectus() {
     targetWeekId: number,
     targetDay: string
   ): Promise<Session> {
-    // 1. Créer la nouvelle session
     const newSession = await client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      withToken(getToken(), sdkCreate('sessions' as any, {
+      sdkCreate('sessions' as any, {
         week_id: targetWeekId,
         day: targetDay,
         type: session.type,
@@ -197,10 +199,9 @@ export function useDirectus() {
         coach_tip: session.coach_tip ?? null,
         optional: session.optional ?? false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any))
+      } as any)
     ) as { id: number }
 
-    // 2. Copier chaque bloc dans l'ordre
     for (const rb of blocks) {
       const { meta, data } = rb
       const blockType = meta.block_type
@@ -210,68 +211,67 @@ export function useDirectus() {
       if (blockType === 'block_cardio') {
         const nb = await client.request(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          withToken(getToken(), sdkCreate('block_cardio' as any, {
+          sdkCreate('block_cardio' as any, {
             subtype: d.subtype, duration_min: d.duration_min,
             pace_zone: d.pace_zone, label: d.label, note: d.note,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any))
+          } as any)
         ) as { id: number }
         await client.request(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          withToken(getToken(), sdkCreate('session_blocks' as any, {
+          sdkCreate('session_blocks' as any, {
             session_id: newSession.id, block_type: 'block_cardio',
             block_id: nb.id, position: meta.position,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any))
+          } as any)
         )
       } else if (blockType === 'block_intervals') {
         const nb = await client.request(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          withToken(getToken(), sdkCreate('block_intervals' as any, {
+          sdkCreate('block_intervals' as any, {
             sets: d.sets, distance_km: d.distance_km, duration_min: d.duration_min,
             recovery_min: d.recovery_min, pace_zone: d.pace_zone, note: d.note,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any))
+          } as any)
         ) as { id: number }
         await client.request(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          withToken(getToken(), sdkCreate('session_blocks' as any, {
+          sdkCreate('session_blocks' as any, {
             session_id: newSession.id, block_type: 'block_intervals',
             block_id: nb.id, position: meta.position,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any))
+          } as any)
         )
       } else if (blockType === 'block_strength') {
         const nb = await client.request(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          withToken(getToken(), sdkCreate('block_strength' as any, {
+          sdkCreate('block_strength' as any, {
             rest_sec: d.rest_sec, note: d.note,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any))
+          } as any)
         ) as { id: number }
         for (const ex of (d.exercises ?? [])) {
           await client.request(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            withToken(getToken(), sdkCreate('block_strength_exercises' as any, {
+            sdkCreate('block_strength_exercises' as any, {
               block_strength_id: nb.id,
               exercise_id: ex.exercise_id?.id ?? ex.exercise_id,
               position: ex.position, sets: ex.sets, reps: ex.reps,
               duration_sec: ex.duration_sec, weight_kg: ex.weight_kg,
               custom_label: ex.custom_label, note: ex.note,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any))
+            } as any)
           )
         }
         await client.request(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          withToken(getToken(), sdkCreate('session_blocks' as any, {
+          sdkCreate('session_blocks' as any, {
             session_id: newSession.id, block_type: 'block_strength',
             block_id: nb.id, position: meta.position,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any))
+          } as any)
         )
       } else {
-        // block_circuit, block_mini_race, block_station_activation, block_station_block
         const stationChildMap: Record<string, { collection: string; fk: string }> = {
           block_circuit:             { collection: 'block_circuit_stations',             fk: 'block_circuit_id' },
           block_mini_race:           { collection: 'block_mini_race_stations',            fk: 'block_mini_race_id' },
@@ -288,28 +288,28 @@ export function useDirectus() {
         if (!childInfo) continue
         const nb = await client.request(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          withToken(getToken(), sdkCreate(blockType as any, scalarMap[blockType] as any))
+          sdkCreate(blockType as any, scalarMap[blockType] as any)
         ) as { id: number }
         for (const st of (d.stations ?? [])) {
           await client.request(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            withToken(getToken(), sdkCreate(childInfo.collection as any, {
+            sdkCreate(childInfo.collection as any, {
               [childInfo.fk]: nb.id,
               station_id: st.station_id?.id ?? st.station_id,
               position: st.position, distance_m: st.distance_m, reps: st.reps,
               duration_sec: st.duration_sec, weight_kg_female: st.weight_kg_female,
               weight_kg_male: st.weight_kg_male, custom_label: st.custom_label, note: st.note,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any))
+            } as any)
           )
         }
         await client.request(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          withToken(getToken(), sdkCreate('session_blocks' as any, {
+          sdkCreate('session_blocks' as any, {
             session_id: newSession.id, block_type: blockType,
             block_id: nb.id, position: meta.position,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any))
+          } as any)
         )
       }
     }
@@ -319,7 +319,6 @@ export function useDirectus() {
   return {
     login,
     logout,
-    getToken: fetchToken,
     fetchPlans,
     fetchPlan,
     fetchSession,
