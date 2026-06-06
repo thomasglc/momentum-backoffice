@@ -24,6 +24,10 @@ const formatLabel: Record<string, string> = {
         <span v-if="st.distance_m" class="text-slate-500 tabular-nums">{{ st.distance_m }} m</span>
         <span v-else-if="st.reps" class="text-slate-500 tabular-nums">{{ st.reps }} reps</span>
         <span v-else-if="st.duration_sec" class="text-slate-500 tabular-nums">{{ st.duration_sec }}s</span>
+        <span v-if="st.weight_kg_female || st.weight_kg_male" class="text-xs flex gap-1">
+          <span v-if="st.weight_kg_female" class="text-pink-500">F {{ st.weight_kg_female }} kg</span>
+          <span v-if="st.weight_kg_male" class="text-blue-500">H {{ st.weight_kg_male }} kg</span>
+        </span>
       </div>
     </div>
   </div>
