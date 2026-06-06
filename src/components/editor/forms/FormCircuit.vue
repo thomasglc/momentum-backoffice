@@ -55,17 +55,17 @@ function handleSubmit() {
     <div class="grid grid-cols-3 gap-3">
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Rounds</label>
-        <input v-model.number="form.rounds" type="number"
+        <input v-model.number="form.rounds" type="number" @wheel="($event.target as HTMLInputElement).blur()"
           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Durée (min)</label>
-        <input v-model.number="form.duration_min" type="number"
+        <input v-model.number="form.duration_min" type="number" @wheel="($event.target as HTMLInputElement).blur()"
           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Repos (min)</label>
-        <input v-model.number="form.rest_between_min" type="number" step="0.5"
+        <input v-model.number="form.rest_between_min" type="number" @wheel="($event.target as HTMLInputElement).blur()" step="0.5"
           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
     </div>

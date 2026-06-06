@@ -27,7 +27,7 @@ const subtypes = ['warmup', 'run', 'cooldown', 'brick_run', 'target_pace']
     </div>
     <div>
       <label class="block text-xs font-medium text-slate-600 mb-1">Durée (min)</label>
-      <input v-model.number="form.duration_min" type="number" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <input v-model.number="form.duration_min" type="number" @wheel="($event.target as HTMLInputElement).blur()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
     </div>
     <div>
       <label class="block text-xs font-medium text-slate-600 mb-1">Zone de pace</label>

@@ -152,7 +152,7 @@ function handleSubmit() {
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Repos entre séries (sec)</label>
-        <input v-model.number="form.rest_sec" type="number"
+        <input v-model.number="form.rest_sec" type="number" @wheel="($event.target as HTMLInputElement).blur()"
           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
     </div>
@@ -193,22 +193,22 @@ function handleSubmit() {
           <div class="grid grid-cols-4 gap-2">
             <div>
               <label class="block text-xs text-slate-400 mb-0.5">Séries</label>
-              <input v-model.number="row.sets" type="number" placeholder="—"
+              <input v-model.number="row.sets" type="number" @wheel="($event.target as HTMLInputElement).blur()" placeholder="—"
                 class="w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
             </div>
             <div>
               <label class="block text-xs text-slate-400 mb-0.5">Reps</label>
-              <input v-model.number="row.reps" type="number" placeholder="—"
+              <input v-model.number="row.reps" type="number" @wheel="($event.target as HTMLInputElement).blur()" placeholder="—"
                 class="w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
             </div>
             <div>
               <label class="block text-xs text-slate-400 mb-0.5">Durée (s)</label>
-              <input v-model.number="row.duration_sec" type="number" placeholder="—"
+              <input v-model.number="row.duration_sec" type="number" @wheel="($event.target as HTMLInputElement).blur()" placeholder="—"
                 class="w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
             </div>
             <div>
               <label class="block text-xs text-slate-400 mb-0.5">Poids (kg)</label>
-              <input v-model.number="row.weight_kg" type="number" step="0.5" placeholder="—"
+              <input v-model.number="row.weight_kg" type="number" @wheel="($event.target as HTMLInputElement).blur()" step="0.5" placeholder="—"
                 class="w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
             </div>
           </div>

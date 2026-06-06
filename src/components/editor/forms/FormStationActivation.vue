@@ -32,7 +32,7 @@ function handleSubmit() {
   <form @submit.prevent="handleSubmit" class="space-y-4">
     <div>
       <label class="block text-xs font-medium text-slate-600 mb-1">Rounds</label>
-      <input v-model.number="form.rounds" type="number"
+      <input v-model.number="form.rounds" type="number" @wheel="($event.target as HTMLInputElement).blur()"
         class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
     </div>
     <div>

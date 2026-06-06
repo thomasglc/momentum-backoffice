@@ -41,12 +41,12 @@ function handleSubmit() {
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Rounds</label>
-        <input v-model.number="form.rounds" type="number"
+        <input v-model.number="form.rounds" type="number" @wheel="($event.target as HTMLInputElement).blur()"
           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Distance run (km)</label>
-        <input v-model.number="form.run_distance_km" type="number" step="0.1"
+        <input v-model.number="form.run_distance_km" type="number" @wheel="($event.target as HTMLInputElement).blur()" step="0.1"
           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
     </div>
@@ -61,7 +61,7 @@ function handleSubmit() {
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Récup entre rounds (min)</label>
-        <input v-model.number="form.rest_between_rounds_min" type="number" step="0.5"
+        <input v-model.number="form.rest_between_rounds_min" type="number" @wheel="($event.target as HTMLInputElement).blur()" step="0.5"
           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
     </div>

@@ -22,19 +22,19 @@ const paceZones: PaceZone[] = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'threshold', 'race'
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Séries</label>
-        <input v-model.number="form.sets" type="number" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input v-model.number="form.sets" type="number" @wheel="($event.target as HTMLInputElement).blur()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Distance (km)</label>
-        <input v-model.number="form.distance_km" type="number" step="0.1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input v-model.number="form.distance_km" type="number" @wheel="($event.target as HTMLInputElement).blur()" step="0.1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Durée (min)</label>
-        <input v-model.number="form.duration_min" type="number" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input v-model.number="form.duration_min" type="number" @wheel="($event.target as HTMLInputElement).blur()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Récupération (min)</label>
-        <input v-model.number="form.recovery_min" type="number" step="0.5" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input v-model.number="form.recovery_min" type="number" @wheel="($event.target as HTMLInputElement).blur()" step="0.5" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       </div>
     </div>
     <div>
