@@ -4,10 +4,9 @@ import { useAthleteSchedule } from '@/composables/useAthleteSchedule'
 
 const props = defineProps<{ raceDate: string }>()
 
-const { currentWeek, weeksRemaining, daysUntilRace, isValid } = useAthleteSchedule()
+const { currentWeek, daysUntilRace, isValid } = useAthleteSchedule()
 
 const week = computed(() => currentWeek(props.raceDate))
-const remaining = computed(() => weeksRemaining(props.raceDate))
 const days = computed(() => daysUntilRace(props.raceDate))
 const valid = computed(() => isValid(props.raceDate))
 
