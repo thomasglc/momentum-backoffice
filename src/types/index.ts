@@ -172,3 +172,29 @@ export interface ResolvedBlock {
   meta: SessionBlock
   data: AnyBlock
 }
+
+export interface Athlete {
+  id: number
+  name: string
+  email: string | null
+  ten_km_time_sec: number | null
+  notes: string | null
+  date_created: string | null
+  date_updated: string | null
+  assignments?: AthleteAssignment[]
+}
+
+export interface AthleteAssignment {
+  id: number
+  athlete_id: number
+  plan_id: number | { id: number; title: string; status: string }
+  race_date: string  // ISO date 'YYYY-MM-DD'
+  notes: string | null
+  date_created: string | null
+  date_updated: string | null
+}
+
+// Forme enrichie utilisée dans l'UI (assignment avec plan résolu)
+export interface AthleteWithAssignment extends Athlete {
+  assignment: (AthleteAssignment & { plan_id: { id: number; title: string; status: string } }) | null
+}
