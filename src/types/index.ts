@@ -188,7 +188,7 @@ export interface AthleteAssignment {
   id: number
   athlete_id: number
   plan_id: number | { id: number; title: string; status: string }
-  race_date: string  // ISO date 'YYYY-MM-DD'
+  race_date: string | null  // ISO date 'YYYY-MM-DD', null si pas encore définie
   notes: string | null
   date_created: string | null
   date_updated: string | null
