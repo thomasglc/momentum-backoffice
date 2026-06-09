@@ -172,3 +172,30 @@ export interface ResolvedBlock {
   meta: SessionBlock
   data: AnyBlock
 }
+
+// ── Directus user (compte auth)
+export interface AthleteUser {
+  id: string           // UUID Directus
+  first_name: string | null
+  last_name: string | null
+  email: string
+}
+
+// ── Profil athlète (athlete_profiles)
+export interface AthleteProfile {
+  id: number
+  directus_user_id: string    // UUID → directus_users.id
+  plan_id: number | { id: number; title: string; status: string }
+  name: string | null         // legacy : stocké comme UUID dans le mobile
+  gender: 'homme' | 'femme' | null
+  ten_km_time_sec: number | null
+  race_date: string | null    // ISO date 'YYYY-MM-DD'
+  created_at: string | null
+  updated_at: string | null
+}
+
+// ── Vue unifiée utilisée dans le back office
+export interface AthleteView {
+  user: AthleteUser
+  profile: AthleteProfile | null
+}

@@ -6,7 +6,11 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\thoma\\\\Documents\\\\Claude\\\\momentum-backoffice\\\\src\\\\components\" -Directory)",
-      "Bash(Select-Object -ExpandProperty Name)"
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(npx vite *)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.dependencies, null, 2\\)\\)\")",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('date-fns/locale/fr'\\)\")"
     ]
   }
 }
