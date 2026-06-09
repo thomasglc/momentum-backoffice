@@ -32,6 +32,7 @@ jobs:
         run: npm run build
         env:
           VITE_DIRECTUS_URL: ${{ vars.DIRECTUS_URL }}
+          VITE_ATHLETE_ROLE_ID: ${{ vars.ATHLETE_ROLE_ID }}
 
       # SPA fallback: GitHub Pages sert 404.html pour les routes inconnues
       - name: Copy index.html to 404.html

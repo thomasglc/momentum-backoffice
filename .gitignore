@@ -38,6 +38,11 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
+# Env files (variables locales — ne pas commiter)
+.env
+.env.local
+.env.*.local
+
 .vscode/extensions.json
 
 CLAUDE.md
