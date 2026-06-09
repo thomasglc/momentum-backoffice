@@ -28,14 +28,21 @@ const client = createDirectus(BASE_URL)
   .with(authentication('json', { storage: localStorageAuth, autoRefresh: true }))
   .with(rest())
 
-let _athleteRoleId: string | null = null
+// L'ID du rôle "Athlète" est configuré en variable d'env (Directus v21 ne supporte pas
+// le filtre API sur les noms de rôles accentués de manière fiable)
+const ATHLETE_ROLE_ID = import.meta.env.VITE_ATHLETE_ROLE_ID as string | undefined
+
+let _athleteRoleId: string | null = ATHLETE_ROLE_ID ?? null
 
 async function getAthleteRoleId(): Promise<string | null> {
   if (_athleteRoleId) return _athleteRoleId
+  // Fallback : charger tous les rôles et chercher par nom en JS
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const roles = await client.request(readRoles({ filter: { name: { _eq: 'Athlète' } } as any }))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  _athleteRoleId = (roles as any[])[0]?.id ?? null
+  const roles = await client.request(readRoles()) as any[]
+  const found = roles.find((r: any) =>
+    r.name?.toLowerCase().includes('athl')
+  )
+  _athleteRoleId = found?.id ?? null
   return _athleteRoleId
 }
 
