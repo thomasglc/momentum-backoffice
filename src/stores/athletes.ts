@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { readItems, createItem, updateItem, deleteItem } from '@directus/sdk'
-import { createDirectus, rest, authentication } from '@directus/sdk'
-import type { Athlete, AthleteAssignment, AthleteWithAssignment } from '@/types'
+import {
+  createDirectus, rest, authentication,
+  readItems, createItem, updateItem, deleteItem,
+  readUsers, createUser, updateUser, deleteUser, readRoles,
+} from '@directus/sdk'
+import type { AthleteView, AthleteProfile, AthleteUser } from '@/types'
 import { AUTH_STORAGE_KEY } from '@/composables/useDirectus'
 
 const BASE_URL = import.meta.env.DEV
@@ -25,8 +28,19 @@ const client = createDirectus(BASE_URL)
   .with(authentication('json', { storage: localStorageAuth, autoRefresh: true }))
   .with(rest())
 
+let _athleteRoleId: string | null = null
+
+async function getAthleteRoleId(): Promise<string | null> {
+  if (_athleteRoleId) return _athleteRoleId
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const roles = await client.request(readRoles({ filter: { name: { _eq: 'Athlète' } } as any }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _athleteRoleId = (roles as any[])[0]?.id ?? null
+  return _athleteRoleId
+}
+
 export const useAthleteStore = defineStore('athletes', () => {
-  const athletes = ref<AthleteWithAssignment[]>([])
+  const athletes = ref<AthleteView[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -34,24 +48,29 @@ export const useAthleteStore = defineStore('athletes', () => {
     loading.value = true
     error.value = null
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const raw = await client.request(
-        readItems('athletes' as any, { fields: ['*'], sort: ['name'], limit: -1 })
-      ) as Athlete[]
+      const roleId = await getAthleteRoleId()
+      if (!roleId) throw new Error('Rôle Athlète introuvable dans Directus')
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const assignments = await client.request(
-        readItems('athlete_plan_assignments' as any, {
-          fields: ['*', 'plan_id.id', 'plan_id.title', 'plan_id.status'],
-          limit: -1,
-        })
-      ) as AthleteAssignment[]
+      const users = await client.request(readUsers({
+        filter: { role: { _eq: roleId } } as any,
+        fields: ['id', 'first_name', 'last_name', 'email'],
+        sort: ['first_name', 'last_name'],
+        limit: -1,
+      })) as AthleteUser[]
 
-      athletes.value = raw.map(a => ({
-        ...a,
-        assignment: (assignments.find(asg => asg.athlete_id === a.id) ?? null) as AthleteWithAssignment['assignment'],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const profiles = await client.request(readItems('athlete_profiles' as any, {
+        fields: ['*', 'plan_id.id', 'plan_id.title', 'plan_id.status'],
+        limit: -1,
+      })) as AthleteProfile[]
+
+      athletes.value = users.map(user => ({
+        user,
+        profile: profiles.find(p => p.directus_user_id === user.id) ?? null,
       }))
     } catch (e: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       error.value = (e as any)?.message ?? 'Erreur lors du chargement des athlètes'
     } finally {
       loading.value = false
@@ -59,73 +78,88 @@ export const useAthleteStore = defineStore('athletes', () => {
   }
 
   async function createAthlete(data: {
-    name: string
-    email?: string | null
-    ten_km_time_sec?: number | null
-    notes?: string | null
+    firstName: string
+    lastName: string
+    email: string
+    password: string
+    gender: 'homme' | 'femme' | null
+    tenKmTimeSec: number | null
     planId: number
-    raceDate: string
-    assignmentNotes?: string | null
+    raceDate: string | null
   }) {
-    const { planId, raceDate, assignmentNotes, ...athleteData } = data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const newAthlete = await client.request(
-      createItem('athletes' as any, athleteData as any)
-    ) as Athlete
+    const roleId = await getAthleteRoleId()
+    if (!roleId) throw new Error('Rôle Athlète introuvable')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await client.request(
-      createItem('athlete_plan_assignments' as any, {
-        athlete_id: newAthlete.id,
-        plan_id: planId,
-        race_date: raceDate,
-        notes: assignmentNotes ?? null,
-      } as any)
-    )
+    const newUser = await client.request(createUser({
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email,
+      password: data.password,
+      role: roleId,
+    } as any)) as { id: string }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await client.request(createItem('athlete_profiles' as any, {
+      directus_user_id: newUser.id,
+      name: newUser.id,
+      plan_id: data.planId,
+      race_date: data.raceDate ?? null,
+      gender: data.gender ?? null,
+      ten_km_time_sec: data.tenKmTimeSec ?? null,
+    } as any))
 
     await fetchAthletes()
   }
 
-  async function updateAthlete(id: number, data: {
-    name?: string
-    email?: string | null
-    ten_km_time_sec?: number | null
-    notes?: string | null
+  async function updateAthlete(athleteView: AthleteView, data: {
+    firstName?: string
+    lastName?: string
+    email?: string
+    password?: string
+    gender?: 'homme' | 'femme' | null
+    tenKmTimeSec?: number | null
     planId?: number
-    raceDate?: string
-    assignmentNotes?: string | null
-  }, assignmentId: number | null) {
-    const { planId, raceDate, assignmentNotes, ...athleteData } = data
+    raceDate?: string | null
+  }) {
+    const userId = athleteView.user.id
+    const profileId = athleteView.profile?.id
 
-    if (Object.keys(athleteData).length > 0) {
+    const userPatch: Record<string, unknown> = {}
+    if (data.firstName !== undefined) userPatch.first_name = data.firstName
+    if (data.lastName !== undefined) userPatch.last_name = data.lastName
+    if (data.email !== undefined) userPatch.email = data.email
+    if (data.password) userPatch.password = data.password
+
+    if (Object.keys(userPatch).length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await client.request(updateItem('athletes' as any, id, athleteData as any))
+      await client.request(updateUser(userId, userPatch as any))
     }
 
-    if (assignmentId && (planId !== undefined || raceDate !== undefined)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await client.request(updateItem('athlete_plan_assignments' as any, assignmentId, {
-        ...(planId !== undefined ? { plan_id: planId } : {}),
-        ...(raceDate !== undefined ? { race_date: raceDate } : {}),
-        ...(assignmentNotes !== undefined ? { notes: assignmentNotes } : {}),
-      } as any))
-    } else if (!assignmentId && planId && raceDate) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await client.request(createItem('athlete_plan_assignments' as any, {
-        athlete_id: id,
-        plan_id: planId,
-        race_date: raceDate,
-        notes: assignmentNotes ?? null,
-      } as any))
+    if (profileId) {
+      const profilePatch: Record<string, unknown> = {}
+      if (data.gender !== undefined) profilePatch.gender = data.gender
+      if (data.tenKmTimeSec !== undefined) profilePatch.ten_km_time_sec = data.tenKmTimeSec
+      if (data.planId !== undefined) profilePatch.plan_id = data.planId
+      if (data.raceDate !== undefined) profilePatch.race_date = data.raceDate
+
+      if (Object.keys(profilePatch).length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await client.request(updateItem('athlete_profiles' as any, profileId, profilePatch as any))
+      }
     }
 
     await fetchAthletes()
   }
 
-  async function deleteAthlete(id: number) {
+  async function deleteAthlete(athleteView: AthleteView) {
+    if (athleteView.profile?.id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await client.request(deleteItem('athlete_profiles' as any, athleteView.profile.id))
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await client.request(deleteItem('athletes' as any, id))
-    athletes.value = athletes.value.filter(a => a.id !== id)
+    await client.request(deleteUser(athleteView.user.id))
+    athletes.value = athletes.value.filter(a => a.user.id !== athleteView.user.id)
   }
 
   return { athletes, loading, error, fetchAthletes, createAthlete, updateAthlete, deleteAthlete }
