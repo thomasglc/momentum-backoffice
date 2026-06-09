@@ -4,14 +4,14 @@ import { useAthleteStore } from '@/stores/athletes'
 import { usePlanStore } from '@/stores/plan'
 import AthleteTable from '@/components/athletes/AthleteTable.vue'
 import AthleteDrawer from '@/components/athletes/AthleteDrawer.vue'
-import type { AthleteWithAssignment } from '@/types'
+import type { AthleteView } from '@/types'
 
 const athleteStore = useAthleteStore()
 const planStore = usePlanStore()
 
 const drawerOpen = ref(false)
-const editingAthlete = ref<AthleteWithAssignment | null>(null)
-const deletingAthlete = ref<AthleteWithAssignment | null>(null)
+const editingAthlete = ref<AthleteView | null>(null)
+const deletingAthlete = ref<AthleteView | null>(null)
 const deleteConfirming = ref(false)
 
 onMounted(async () => {
@@ -26,7 +26,7 @@ function openAdd() {
   drawerOpen.value = true
 }
 
-function openEdit(athlete: AthleteWithAssignment) {
+function openEdit(athlete: AthleteView) {
   editingAthlete.value = athlete
   drawerOpen.value = true
 }
@@ -36,7 +36,7 @@ function closeDrawer() {
   editingAthlete.value = null
 }
 
-async function confirmDelete(athlete: AthleteWithAssignment) {
+function confirmDelete(athlete: AthleteView) {
   deletingAthlete.value = athlete
 }
 
@@ -44,11 +44,16 @@ async function doDelete() {
   if (!deletingAthlete.value) return
   deleteConfirming.value = true
   try {
-    await athleteStore.deleteAthlete(deletingAthlete.value.id)
+    await athleteStore.deleteAthlete(deletingAthlete.value)
   } finally {
     deletingAthlete.value = null
     deleteConfirming.value = false
   }
+}
+
+function athleteDisplayName(a: AthleteView): string {
+  const parts = [a.user.first_name, a.user.last_name].filter(Boolean)
+  return parts.length ? parts.join(' ') : a.user.email
 }
 </script>
 
@@ -102,26 +107,20 @@ async function doDelete() {
       @close="closeDrawer"
     />
 
-    <!-- Modal de confirmation de suppression -->
     <Transition name="fade">
       <div v-if="deletingAthlete" class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
           <h3 class="text-sm font-semibold text-slate-900 mb-2">Supprimer l'athlète ?</h3>
           <p class="text-sm text-slate-500 mb-5">
-            <strong>{{ deletingAthlete.name }}</strong> et toutes ses affectations seront supprimés définitivement.
+            <strong>{{ athleteDisplayName(deletingAthlete) }}</strong> et son compte seront supprimés définitivement.
           </p>
           <div class="flex justify-end gap-3">
-            <button
-              @click="deletingAthlete = null"
-              class="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-            >
+            <button @click="deletingAthlete = null"
+              class="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">
               Annuler
             </button>
-            <button
-              @click="doDelete"
-              :disabled="deleteConfirming"
-              class="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-            >
+            <button @click="doDelete" :disabled="deleteConfirming"
+              class="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
               {{ deleteConfirming ? 'Suppression...' : 'Supprimer' }}
             </button>
           </div>

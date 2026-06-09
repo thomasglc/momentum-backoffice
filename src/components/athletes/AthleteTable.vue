@@ -1,30 +1,38 @@
 <script setup lang="ts">
-import { useAthleteSchedule } from '@/composables/useAthleteSchedule'
 import AthleteWeekBadge from './AthleteWeekBadge.vue'
-import type { AthleteWithAssignment } from '@/types'
+import type { AthleteView } from '@/types'
 
-defineProps<{ athletes: AthleteWithAssignment[] }>()
+defineProps<{ athletes: AthleteView[] }>()
 const emit = defineEmits<{
-  edit: [athlete: AthleteWithAssignment]
-  delete: [athlete: AthleteWithAssignment]
+  edit: [athlete: AthleteView]
+  delete: [athlete: AthleteView]
 }>()
 
-useAthleteSchedule()
+function fullName(a: AthleteView): string {
+  const parts = [a.user.first_name, a.user.last_name].filter(Boolean)
+  return parts.length ? parts.join(' ') : a.user.email
+}
 
 function formatRaceDate(date: string): string {
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date))
 }
 
-function planTitle(a: AthleteWithAssignment): string {
-  const pid = a.assignment?.plan_id
+function planTitle(a: AthleteView): string {
+  const pid = a.profile?.plan_id
   if (!pid) return '—'
   return typeof pid === 'object' ? pid.title : `Plan #${pid}`
 }
 
-function planId(a: AthleteWithAssignment): number | null {
-  const pid = a.assignment?.plan_id
+function planId(a: AthleteView): number | null {
+  const pid = a.profile?.plan_id
   if (!pid) return null
   return typeof pid === 'object' ? pid.id : pid
+}
+
+function genderLabel(g: string | null): string {
+  if (g === 'homme') return 'H'
+  if (g === 'femme') return 'F'
+  return ''
 }
 </script>
 
@@ -41,74 +49,61 @@ function planId(a: AthleteWithAssignment): number | null {
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
-        <tr
-          v-for="athlete in athletes"
-          :key="athlete.id"
-          class="hover:bg-slate-50 transition-colors group"
-        >
-          <!-- Athlète -->
+        <tr v-for="athlete in athletes" :key="athlete.user.id"
+          class="hover:bg-slate-50 transition-colors group">
+
           <td class="px-4 py-3">
-            <div class="font-medium text-slate-900">{{ athlete.name }}</div>
-            <div v-if="athlete.email" class="text-xs text-slate-400">{{ athlete.email }}</div>
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-slate-900">{{ fullName(athlete) }}</span>
+              <span v-if="athlete.profile?.gender"
+                class="text-xs px-1.5 py-0.5 rounded font-medium"
+                :class="athlete.profile.gender === 'homme' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'">
+                {{ genderLabel(athlete.profile.gender) }}
+              </span>
+            </div>
+            <div class="text-xs text-slate-400">{{ athlete.user.email }}</div>
           </td>
 
-          <!-- Plan -->
           <td class="px-4 py-3">
-            <RouterLink
-              v-if="planId(athlete)"
-              :to="`/plans/${planId(athlete)}`"
-              class="text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
-            >
+            <RouterLink v-if="planId(athlete)" :to="`/plans/${planId(athlete)}`"
+              class="text-indigo-600 hover:text-indigo-800 hover:underline transition-colors">
               {{ planTitle(athlete) }}
             </RouterLink>
             <span v-else class="text-slate-400">—</span>
           </td>
 
-          <!-- Date de course -->
           <td class="px-4 py-3 text-slate-600">
-            <span v-if="athlete.assignment?.race_date">
-              {{ formatRaceDate(athlete.assignment.race_date) }}
+            <span v-if="athlete.profile?.race_date">
+              {{ formatRaceDate(athlete.profile.race_date) }}
             </span>
-            <span v-else class="text-slate-400">—</span>
+            <span v-else class="text-slate-400 italic text-xs">À définir</span>
           </td>
 
-          <!-- Avancement -->
           <td class="px-4 py-3">
-            <AthleteWeekBadge
-              v-if="athlete.assignment?.race_date"
-              :race-date="athlete.assignment.race_date"
-            />
+            <AthleteWeekBadge v-if="athlete.profile?.race_date" :race-date="athlete.profile.race_date"/>
             <span v-else class="text-slate-400">—</span>
           </td>
 
-          <!-- Actions -->
           <td class="px-4 py-3">
             <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                @click="emit('edit', athlete)"
-                class="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-                title="Modifier"
-              >
+              <button @click="emit('edit', athlete)"
+                class="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors" title="Modifier">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                 </svg>
               </button>
-              <button
-                @click="emit('delete', athlete)"
-                class="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
-                title="Supprimer"
-              >
+              <button @click="emit('delete', athlete)"
+                class="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors" title="Supprimer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                 </svg>
               </button>
             </div>
           </td>
         </tr>
 
-        <!-- Empty state -->
         <tr v-if="athletes.length === 0">
           <td colspan="5" class="px-4 py-12 text-center text-sm text-slate-400">
             Aucun athlète — cliquez sur "Ajouter un athlète" pour commencer.
