@@ -9,6 +9,8 @@ export type BlockType =
   | 'block_station_activation'
   | 'block_station_block'
 
+export type PlanType = 'open_solo' | 'open_double_mixte' | 'open_double_men' | 'open_double_women'
+
 export interface Plan {
   id: number
   title: string
@@ -17,6 +19,7 @@ export interface Plan {
   sport: string
   level: string
   status: string
+  plan_type: PlanType | null
   weeks: Week[]
 }
 

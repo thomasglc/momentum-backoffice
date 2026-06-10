@@ -1,5 +1,5 @@
 import { createDirectus, rest, authentication, readItems, readItem, updateItem, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
-import type { Plan, AnyBlock, BlockType, Session, ResolvedBlock } from '@/types'
+import type { Plan, PlanType, AnyBlock, BlockType, Session, ResolvedBlock } from '@/types'
 
 const BASE_URL = import.meta.env.DEV
   ? `${window.location.origin}/api`
@@ -118,6 +118,13 @@ export function useDirectus() {
     }
 
     return block as unknown as AnyBlock
+  }
+
+  async function updatePlan(id: number, data: { title?: string; description?: string | null; status?: string; plan_type?: PlanType | null; level?: string; sport?: string }) {
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      updateItem('plans' as any, id, data as any)
+    )
   }
 
   async function updateBlock(blockType: BlockType, blockId: number, data: Partial<AnyBlock>) {
@@ -323,6 +330,7 @@ export function useDirectus() {
     fetchPlan,
     fetchSession,
     fetchBlock,
+    updatePlan,
     updateBlock,
     deleteSession,
     createCollectionItem,

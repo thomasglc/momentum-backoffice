@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useDirectus, isAuthError } from '@/composables/useDirectus'
 import { useRouter } from 'vue-router'
-import type { Plan, Session, ResolvedBlock } from '@/types'
+import type { Plan, PlanType, Session, ResolvedBlock } from '@/types'
 
 export const usePlanStore = defineStore('plan', () => {
   const plans = ref<Plan[]>([])
@@ -77,6 +77,14 @@ export const usePlanStore = defineStore('plan', () => {
     }
   }
 
+  async function updatePlan(id: number, data: { title?: string; description?: string | null; status?: string; plan_type?: PlanType | null; level?: string; sport?: string }) {
+    const updated = await directus.updatePlan(id, data) as Plan
+    const idx = plans.value.findIndex((p) => p.id === id)
+    if (idx !== -1) plans.value[idx] = { ...plans.value[idx], ...updated }
+    if (currentPlan.value?.id === id) currentPlan.value = { ...currentPlan.value, ...updated }
+    return updated
+  }
+
   function getWeekById(weekId: number) {
     return currentPlan.value?.weeks.find((w) => w.id === weekId) ?? null
   }
@@ -91,6 +99,7 @@ export const usePlanStore = defineStore('plan', () => {
     loadPlans,
     loadPlan,
     loadSession,
+    updatePlan,
     getWeekById,
   }
 })
