@@ -202,3 +202,9 @@ export interface AthleteView {
   user: AthleteUser
   profile: AthleteProfile | null
 }
+
+export interface WaitingListEntry {
+  id: number
+  email: string
+  date_created: string   // ISO datetime
+}
