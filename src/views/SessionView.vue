@@ -175,6 +175,22 @@ async function addBlock(blockType: BlockType) {
     await store.loadSession(sessionId)
   }
 }
+
+async function onReorder(newBlocks: ResolvedBlock[]) {
+  // Optimistic update
+  store.currentBlocks.splice(0, store.currentBlocks.length, ...newBlocks)
+
+  // PATCH position de chaque session_block (1-based)
+  try {
+    await Promise.all(
+      newBlocks.map((block, index) =>
+        directus.updateCollectionItem('session_blocks', block.meta.id, { position: index + 1 })
+      )
+    )
+  } catch {
+    await store.loadSession(sessionId)
+  }
+}
 </script>
 
 <template>
@@ -344,6 +360,7 @@ async function addBlock(blockType: BlockType) {
         :blocks="blocks"
         :on-edit="(b) => (editingBlock = b)"
         :on-delete="deleteBlock"
+        @reorder="onReorder"
       />
 
       <!-- Add block -->
