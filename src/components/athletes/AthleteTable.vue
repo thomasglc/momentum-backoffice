@@ -62,6 +62,22 @@ function genderLabel(g: string | null): string {
               </span>
             </div>
             <div class="text-xs text-slate-400">{{ athlete.user.email }}</div>
+            <div class="mt-1">
+              <span v-if="athlete.profile?.password_changed"
+                class="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium bg-emerald-50 text-emerald-600">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+                MDP modifié
+              </span>
+              <span v-else-if="athlete.profile"
+                class="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+                MDP par défaut
+              </span>
+            </div>
           </td>
 
           <td class="px-4 py-3">

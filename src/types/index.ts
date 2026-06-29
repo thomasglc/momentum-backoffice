@@ -193,6 +193,7 @@ export interface AthleteProfile {
   gender: 'homme' | 'femme' | null
   ten_km_time_sec: number | null
   race_date: string | null    // ISO date 'YYYY-MM-DD'
+  password_changed: boolean | null
   created_at: string | null
   updated_at: string | null
 }
