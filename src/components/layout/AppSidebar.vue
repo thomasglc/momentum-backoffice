@@ -52,6 +52,17 @@ const activeWeekId = computed(() => {
     <!-- Nav générique -->
     <nav v-if="!isInPlan" class="flex-1 px-3 py-4 space-y-1">
       <RouterLink
+        to="/suivi"
+        class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+        active-class="bg-indigo-50 text-indigo-700"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 13h4l3-8 4 14 3-6h4" />
+        </svg>
+        Suivi
+      </RouterLink>
+      <RouterLink
         to="/plans"
         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
         active-class="bg-indigo-50 text-indigo-700"
