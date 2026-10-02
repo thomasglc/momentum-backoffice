@@ -54,7 +54,13 @@ function genderLabel(g: string | null): string {
 
           <td class="px-4 py-3">
             <div class="flex items-center gap-2">
-              <span class="font-medium text-slate-900">{{ fullName(athlete) }}</span>
+              <!-- Le nom mène à la fiche de suivi quand l'athlète a un profil -->
+              <RouterLink
+                v-if="athlete.profile"
+                :to="{ name: 'athlete', params: { profileId: athlete.profile.id } }"
+                class="font-medium text-slate-900 hover:text-indigo-600 hover:underline transition-colors"
+              >{{ fullName(athlete) }}</RouterLink>
+              <span v-else class="font-medium text-slate-900">{{ fullName(athlete) }}</span>
               <span v-if="athlete.profile?.gender"
                 class="text-xs px-1.5 py-0.5 rounded font-medium"
                 :class="athlete.profile.gender === 'homme' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'">

@@ -10,12 +10,17 @@ declare module 'vue-router' {
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', redirect: '/plans' },
+    { path: '/', redirect: '/suivi' },
     {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
       meta: { public: true },
+    },
+    {
+      path: '/suivi',
+      name: 'tracking',
+      component: () => import('@/views/TrackingView.vue'),
     },
     {
       path: '/plans',
@@ -26,6 +31,12 @@ const router = createRouter({
       path: '/athletes',
       name: 'athletes',
       component: () => import('@/views/AthletesView.vue'),
+    },
+    {
+      // profileId et non id : la barre latérale réserve « id » aux pages d'un plan
+      path: '/athletes/:profileId',
+      name: 'athlete',
+      component: () => import('@/views/AthleteDetailView.vue'),
     },
     {
       path: '/plans/:id',

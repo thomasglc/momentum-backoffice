@@ -20,7 +20,31 @@ export interface Plan {
   level: string
   status: string
   plan_type: PlanType | null
+  total_weeks?: number | null                      // longueur du plan, course comprise
+  phase_names?: Record<string, string> | null     // noms des phases par numéro
   weeks: Week[]
+}
+
+// ── Séance validée par un athlète (session_completions)
+export interface SessionCompletion {
+  id: number
+  athlete_profile_id: number
+  session_id: number
+  completed_at: string | null
+  duration_sec?: number | null             // durée réelle, quand elle est notée
+  distance_km?: number | string | null     // distance, quand elle est notée
+}
+
+// ── Série enregistrée par un athlète (set_logs), exercice déplié
+export interface SetLogRow {
+  id: number
+  session_id: number | null
+  exercise_id: { id: number; name: string } | number | null
+  set_number: number
+  weight_kg: number | null
+  reps: number | null
+  duration_sec: number | null
+  date_created: string | null
 }
 
 export interface Week {

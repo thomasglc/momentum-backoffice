@@ -1,5 +1,5 @@
-import { createDirectus, rest, authentication, readItems, readItem, updateItem, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
-import type { Plan, PlanType, AnyBlock, BlockType, Session, ResolvedBlock } from '@/types'
+import { createDirectus, rest, authentication, readItems, readItem, updateItem, aggregate, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
+import type { Plan, PlanType, AnyBlock, BlockType, Session, ResolvedBlock, SessionCompletion, SetLogRow } from '@/types'
 
 const BASE_URL = import.meta.env.DEV
   ? `${window.location.origin}/api`
@@ -186,6 +186,49 @@ export function useDirectus() {
     )
   }
 
+  // ── Suivi des athlètes ─────────────────────────────────────────────────────
+
+  /** Séances validées : toutes, ou celles d'un athlète */
+  async function fetchCompletions(profileId?: number): Promise<SessionCompletion[]> {
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      readItems('session_completions' as any, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(profileId != null ? { filter: { athlete_profile_id: { _eq: profileId } } as any } : {}),
+        fields: ['*'],
+        limit: -1,
+      })
+    ) as unknown as Promise<SessionCompletion[]>
+  }
+
+  /** Séries enregistrées d'un athlète, de la plus ancienne à la plus récente, avec le nom de l'exercice */
+  async function fetchSetLogs(profileId: number): Promise<SetLogRow[]> {
+    return client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      readItems('set_logs' as any, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        filter: { athlete_profile_id: { _eq: profileId } } as any,
+        fields: ['id', 'session_id', 'set_number', 'weight_kg', 'reps', 'duration_sec', 'date_created', 'exercise_id.id', 'exercise_id.name'],
+        sort: ['date_created'],
+        limit: -1,
+      })
+    ) as unknown as Promise<SetLogRow[]>
+  }
+
+  /** Dernière série enregistrée par athlète : { [id du profil]: horodatage } */
+  async function fetchLastSetLogs(): Promise<Record<number, string>> {
+    const rows = await client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      aggregate('set_logs' as any, { aggregate: { max: ['date_created'] }, groupBy: ['athlete_profile_id'] } as any)
+    ) as unknown as { athlete_profile_id: number | null; max?: { date_created?: string | null } }[]
+    const last: Record<number, string> = {}
+    for (const row of rows) {
+      const at = row.max?.date_created
+      if (row.athlete_profile_id != null && at) last[row.athlete_profile_id] = at
+    }
+    return last
+  }
+
   async function copySession(
     session: Session,
     blocks: ResolvedBlock[],
@@ -338,6 +381,9 @@ export function useDirectus() {
     deleteCollectionItem,
     fetchStationCatalog,
     fetchExerciseCatalog,
+    fetchCompletions,
+    fetchSetLogs,
+    fetchLastSetLogs,
     copySession,
   }
 }
