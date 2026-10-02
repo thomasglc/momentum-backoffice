@@ -176,8 +176,8 @@ defineExpose({ getOps })
           class="w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
       </div>
       <div>
-        <label class="block text-xs text-slate-400 mb-0.5">Note</label>
-        <input v-model="row.note" type="text" placeholder="—"
+        <label class="block text-xs text-slate-400 mb-0.5">Note, en pastilles séparées par « · »</label>
+        <input v-model="row.note" type="text" placeholder="30-40 m · lourd"
           class="w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
       </div>
     </div>

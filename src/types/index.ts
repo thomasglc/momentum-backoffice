@@ -106,7 +106,8 @@ export interface ExerciseCatalog {
   name: string
   category: string | null
   equipment: string | null
-  notes: string | null
+  notes: string | null                // affichée dans la fiche de l'exercice, dans l'application
+  image_urls?: string[] | null        // photos du mouvement : départ, arrivée
 }
 
 export interface BlockStrengthExercise {
@@ -136,6 +137,7 @@ export interface StationCatalog {
   default_unit: string | null
   is_hyrox_official: boolean
   notes: string | null
+  image_urls?: string[] | null
 }
 
 export interface StationEntry {

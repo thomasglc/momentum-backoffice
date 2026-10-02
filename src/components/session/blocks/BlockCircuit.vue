@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { BlockCircuit } from '@/types'
+import NoteChips from '@/components/ui/NoteChips.vue'
 
 defineProps<{ block: BlockCircuit }>()
 </script>
@@ -16,8 +17,11 @@ defineProps<{ block: BlockCircuit }>()
       <span v-if="block.rest_between_min" class="text-slate-400 font-normal normal-case">· repos {{ block.rest_between_min }} min</span>
     </div>
     <div class="space-y-1.5">
-      <div v-for="st in block.stations" :key="st.id" class="flex items-center gap-3 text-sm">
-        <span class="flex-1 text-slate-700 font-medium">{{ st.custom_label || st.station_id.name }}</span>
+      <div v-for="st in block.stations" :key="st.id" class="flex items-start gap-3 text-sm">
+        <span class="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-700 font-medium">
+          {{ st.custom_label || st.station_id.name }}
+          <NoteChips :note="st.note" :except="st.custom_label || st.station_id.name" />
+        </span>
         <span v-if="st.distance_m" class="text-slate-500 tabular-nums">{{ st.distance_m }} m</span>
         <span v-else-if="st.reps" class="text-slate-500 tabular-nums">{{ st.reps }} reps</span>
         <span v-else-if="st.duration_sec" class="text-slate-500 tabular-nums">{{ st.duration_sec }}s</span>

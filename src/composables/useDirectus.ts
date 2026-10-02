@@ -1,5 +1,7 @@
-import { createDirectus, rest, authentication, readItems, readItem, updateItem, aggregate, createItems, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
+import { createDirectus, rest, authentication, readItems, readItem, updateItem, aggregate, readRelations, createItems, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
 import type { CopyApi, Row } from '@/utils/duplicate'
+import { countUsage, referencesTo } from '@/utils/catalog'
+import type { RelationRow, Usage } from '@/utils/catalog'
 import type { Plan, PlanType, AnyBlock, BlockType, Session, ResolvedBlock, SessionCompletion, SetLogRow } from '@/types'
 
 const BASE_URL = import.meta.env.DEV
@@ -199,6 +201,31 @@ export function useDirectus() {
     )
   }
 
+  /**
+   * Nombre de lignes qui utilisent chaque exercice et chaque station : séances des plans et saisies d'athlètes.
+   * Les collections à compter se lisent dans les relations de Directus : une collection ajoutée plus tard
+   * (saisie des stations, par exemple) est comptée sans toucher à ce code.
+   */
+  async function fetchCatalogUsage(): Promise<{ exercise: Record<number, Usage>; station: Record<number, Usage> }> {
+    const relations = await client.request(readRelations()) as unknown as RelationRow[]
+    const usageOf = async (catalog: string) => {
+      const references = referencesTo(relations, catalog)
+      // Sans relation lisible, tout paraîtrait inutilisé : mieux vaut échouer que laisser supprimer
+      if (!references.length) throw new Error(`Relations de ${catalog} illisibles`)
+      return countUsage(await Promise.all(references.map(async ({ collection, field }) => ({
+        collection,
+        field,
+        rows: await client.request(
+          // limit -1 : sans elle, Directus ne renvoie que les 100 premiers groupes
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          aggregate(collection as any, { aggregate: { count: '*' }, groupBy: [field], query: { limit: -1 } } as any)
+        ) as unknown as Record<string, unknown>[],
+      }))))
+    }
+    const [exercise, station] = await Promise.all([usageOf('exercise_catalog'), usageOf('station_catalog')])
+    return { exercise, station }
+  }
+
   // ── Copie de semaines et de plans ──────────────────────────────────────────
   // Lecture par filtre et création par lots : les deux gestes dont utils/duplicate a besoin
   const copyApi: CopyApi = {
@@ -245,7 +272,7 @@ export function useDirectus() {
   async function fetchLastSetLogs(): Promise<Record<number, string>> {
     const rows = await client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      aggregate('set_logs' as any, { aggregate: { max: ['date_created'] }, groupBy: ['athlete_profile_id'] } as any)
+      aggregate('set_logs' as any, { aggregate: { max: ['date_created'] }, groupBy: ['athlete_profile_id'], query: { limit: -1 } } as any)
     ) as unknown as { athlete_profile_id: number | null; max?: { date_created?: string | null } }[]
     const last: Record<number, string> = {}
     for (const row of rows) {
@@ -407,6 +434,7 @@ export function useDirectus() {
     deleteCollectionItem,
     fetchStationCatalog,
     fetchExerciseCatalog,
+    fetchCatalogUsage,
     fetchCompletions,
     fetchSetLogs,
     fetchLastSetLogs,
