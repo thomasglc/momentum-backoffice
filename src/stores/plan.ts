@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useDirectus, isAuthError } from '@/composables/useDirectus'
+import type { PlanFields } from '@/composables/useDirectus'
+import { copyPlan, copyWeek } from '@/utils/duplicate'
 import { useRouter } from 'vue-router'
-import type { Plan, PlanType, Session, ResolvedBlock } from '@/types'
+import type { Plan, Session, ResolvedBlock, Week } from '@/types'
 
 export const usePlanStore = defineStore('plan', () => {
   const plans = ref<Plan[]>([])
@@ -77,12 +79,60 @@ export const usePlanStore = defineStore('plan', () => {
     }
   }
 
-  async function updatePlan(id: number, data: { title?: string; description?: string | null; status?: string; plan_type?: PlanType | null; level?: string; sport?: string }) {
+  async function updatePlan(id: number, data: PlanFields) {
     const updated = await directus.updatePlan(id, data) as Plan
     const idx = plans.value.findIndex((p) => p.id === id)
     if (idx !== -1) plans.value[idx] = { ...plans.value[idx], ...updated }
     if (currentPlan.value?.id === id) currentPlan.value = { ...currentPlan.value, ...updated }
     return updated
+  }
+
+  // ── Création et copie ──────────────────────────────────────────────────────
+
+  /** Nouveau plan, sans semaine */
+  async function createPlan(data: PlanFields): Promise<Plan> {
+    const created = { ...(await directus.createCollectionItem('plans', { ...data })) as Plan, weeks: [] }
+    plans.value.push(created)
+    return created
+  }
+
+  const nextWeekNumber = (plan: Plan): number => Math.max(0, ...plan.weeks.map(w => w.week_number)) + 1
+
+  /** Semaine vide en fin du plan courant, dans la phase de la dernière semaine */
+  async function addWeek(): Promise<Week> {
+    const plan = currentPlan.value
+    if (!plan) throw new Error('Aucun plan chargé')
+    const last = [...plan.weeks].sort((a, b) => a.week_number - b.week_number).at(-1)
+    const created = await directus.createCollectionItem('weeks', {
+      plan_id: plan.id,
+      week_number: nextWeekNumber(plan),
+      phase: last?.phase ?? 1,
+      theme: null,
+      is_deload: false,
+      week_note: null,
+    }) as Week
+    const week = { ...created, sessions: [] }
+    plan.weeks.push(week)
+    return week
+  }
+
+  /** Copie une semaine du plan courant en fin de plan, avec ses séances et leurs blocs. Renvoie la nouvelle semaine. */
+  async function duplicateWeek(weekId: number): Promise<Week | null> {
+    const plan = currentPlan.value
+    if (!plan) throw new Error('Aucun plan chargé')
+    const copy = await copyWeek(directus.copyApi, weekId, { planId: plan.id, weekNumber: nextWeekNumber(plan) })
+    await loadPlan(plan.id)
+    return getWeekById(copy.weekId)
+  }
+
+  /** Copie un plan et toutes ses semaines dans un brouillon « Titre (copie) ». Renvoie son identifiant. */
+  async function duplicatePlan(plan: Plan, onProgress?: (done: number, total: number) => void): Promise<number> {
+    try {
+      return await copyPlan(directus.copyApi, plan.id, { title: `${plan.title} (copie)` }, onProgress)
+    } finally {
+      // Même interrompue, la copie a créé un plan : la liste doit le montrer
+      plans.value = await directus.fetchPlans()
+    }
   }
 
   function getWeekById(weekId: number) {
@@ -100,6 +150,10 @@ export const usePlanStore = defineStore('plan', () => {
     loadPlan,
     loadSession,
     updatePlan,
+    createPlan,
+    addWeek,
+    duplicateWeek,
+    duplicatePlan,
     getWeekById,
   }
 })

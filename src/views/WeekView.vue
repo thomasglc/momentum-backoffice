@@ -150,20 +150,25 @@ const editingWeek = ref(false)
 const editTheme = ref('')
 const editNote = ref('')
 const editIsDeload = ref(false)
+const editPhase = ref(1)
 const isSavingWeek = ref(false)
 
 function openEditWeek() {
   editTheme.value = week.value?.theme ?? ''
   editNote.value = week.value?.week_note ?? ''
   editIsDeload.value = !!week.value?.is_deload
+  editPhase.value = week.value?.phase ?? 1
   editingWeek.value = true
 }
 
 async function saveWeek() {
   if (!week.value) return
   isSavingWeek.value = true
+  // Une phase vide ou hors bornes garde la phase actuelle
+  const phase = Number.isInteger(editPhase.value) && editPhase.value >= 1 ? editPhase.value : week.value.phase
   const w = store.currentPlan?.weeks.find(w => w.id === weekId.value)
   if (w) {
+    w.phase = phase
     w.theme = editTheme.value || undefined as any
     w.week_note = editNote.value || undefined as any
     w.is_deload = editIsDeload.value
@@ -174,6 +179,7 @@ async function saveWeek() {
       theme: editTheme.value || null,
       week_note: editNote.value || null,
       is_deload: editIsDeload.value,
+      phase,
     })
   } catch {
     await store.loadPlan(planId.value)
@@ -265,6 +271,18 @@ async function submitAdd() {
 
           <!-- Formulaire d'édition inline -->
           <div v-else class="mt-2 space-y-2 max-w-md">
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">Phase</label>
+              <input
+                v-model.number="editPhase"
+                type="number"
+                min="1"
+                max="9"
+                @keydown.enter="saveWeek"
+                @keydown.esc="editingWeek = false"
+                class="w-20 px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
             <div>
               <label class="block text-xs font-medium text-slate-500 mb-1">Thème</label>
               <input

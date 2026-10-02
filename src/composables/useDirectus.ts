@@ -1,4 +1,5 @@
-import { createDirectus, rest, authentication, readItems, readItem, updateItem, aggregate, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
+import { createDirectus, rest, authentication, readItems, readItem, updateItem, aggregate, createItems, createItem as sdkCreate, deleteItem as sdkDelete } from '@directus/sdk'
+import type { CopyApi, Row } from '@/utils/duplicate'
 import type { Plan, PlanType, AnyBlock, BlockType, Session, ResolvedBlock, SessionCompletion, SetLogRow } from '@/types'
 
 const BASE_URL = import.meta.env.DEV
@@ -32,6 +33,18 @@ export function isAuthError(e: unknown): boolean {
     return status === 401 || status === 403
   }
   return false
+}
+
+/** Champs d'un plan que le CRM sait écrire */
+export interface PlanFields {
+  title?: string
+  description?: string | null
+  status?: string
+  plan_type?: PlanType | null
+  level?: string
+  sport?: string
+  total_weeks?: number | null
+  phase_names?: Record<string, string> | null
 }
 
 export function useDirectus() {
@@ -120,7 +133,7 @@ export function useDirectus() {
     return block as unknown as AnyBlock
   }
 
-  async function updatePlan(id: number, data: { title?: string; description?: string | null; status?: string; plan_type?: PlanType | null; level?: string; sport?: string }) {
+  async function updatePlan(id: number, data: PlanFields) {
     return client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       updateItem('plans' as any, id, data as any)
@@ -184,6 +197,19 @@ export function useDirectus() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       readItems('exercise_catalog' as any, { fields: ['*'], limit: -1 })
     )
+  }
+
+  // ── Copie de semaines et de plans ──────────────────────────────────────────
+  // Lecture par filtre et création par lots : les deux gestes dont utils/duplicate a besoin
+  const copyApi: CopyApi = {
+    read: (collection, filter) => client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      readItems(collection as any, { filter: filter as any, fields: ['*'], limit: -1 })
+    ) as unknown as Promise<Row[]>,
+    create: (collection, rows) => client.request(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createItems(collection as any, rows as any)
+    ) as unknown as Promise<Row[]>,
   }
 
   // ── Suivi des athlètes ─────────────────────────────────────────────────────
@@ -384,6 +410,7 @@ export function useDirectus() {
     fetchCompletions,
     fetchSetLogs,
     fetchLastSetLogs,
+    copyApi,
     copySession,
   }
 }

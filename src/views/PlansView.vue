@@ -2,10 +2,12 @@
 import { onMounted, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlanStore } from '@/stores/plan'
+import AppToast from '@/components/ui/AppToast.vue'
 import type { Plan, PlanType } from '@/types'
 
 const store = usePlanStore()
 const router = useRouter()
+const toast = ref<InstanceType<typeof AppToast> | null>(null)
 
 onMounted(() => store.loadPlans())
 
@@ -28,7 +30,8 @@ const planTypeLabel: Record<string, string> = {
   open_double_women: 'Open Double Women',
 }
 
-// ── Drawer ────────────────────────────────────────────────────────────────────
+// ── Drawer : modification d'un plan, ou création quand editingPlan est vide ───
+const PHASES = [1, 2, 3, 4]
 const drawerOpen = ref(false)
 const saving = ref(false)
 const saveError = ref<string | null>(null)
@@ -42,19 +45,34 @@ const form = reactive({
   level: '',
   status: '',
   plan_type: '' as PlanType | '',
+  total_weeks: '' as number | '',
+  phase_names: {} as Record<number, string>,
 })
+
+function fillForm(plan: Plan | null) {
+  const model = store.plans[0] // un nouveau plan reprend le sport et le niveau des plans existants
+  form.title = plan?.title ?? ''
+  form.description = plan?.description ?? ''
+  form.sport = plan?.sport ?? model?.sport ?? 'hyrox'
+  form.level = plan?.level ?? model?.level ?? ''
+  form.status = plan?.status ?? 'draft'
+  form.plan_type = plan?.plan_type ?? ''
+  form.total_weeks = plan ? plan.total_weeks ?? '' : 19
+  form.phase_names = Object.fromEntries(PHASES.map(phase => [phase, plan?.phase_names?.[phase] ?? '']))
+  saveError.value = null
+  saveSuccess.value = false
+}
 
 function openDrawer(plan: Plan, e: Event) {
   e.stopPropagation()
   editingPlan.value = plan
-  form.title = plan.title
-  form.description = plan.description ?? ''
-  form.sport = plan.sport
-  form.level = plan.level
-  form.status = plan.status
-  form.plan_type = plan.plan_type ?? ''
-  saveError.value = null
-  saveSuccess.value = false
+  fillForm(plan)
+  drawerOpen.value = true
+}
+
+function openCreate() {
+  editingPlan.value = null
+  fillForm(null)
   drawerOpen.value = true
 }
 
@@ -64,35 +82,75 @@ function closeDrawer() {
 }
 
 async function save() {
-  if (!editingPlan.value) return
   saving.value = true
   saveError.value = null
   saveSuccess.value = false
+  const names = Object.fromEntries(
+    PHASES.map(phase => [String(phase), (form.phase_names[phase] ?? '').trim()]).filter(([, name]) => name)
+  )
+  const data = {
+    title: form.title.trim(),
+    description: form.description || null,
+    sport: form.sport,
+    level: form.level,
+    status: form.status,
+    plan_type: (form.plan_type as PlanType) || null,
+    total_weeks: form.total_weeks === '' ? null : Number(form.total_weeks),
+    phase_names: Object.keys(names).length ? names : null,
+  }
   try {
-    await store.updatePlan(editingPlan.value.id, {
-      title: form.title,
-      description: form.description || null,
-      sport: form.sport,
-      level: form.level,
-      status: form.status,
-      plan_type: (form.plan_type as PlanType) || null,
-    })
-    saveSuccess.value = true
-    setTimeout(() => {
-      saveSuccess.value = false
+    if (editingPlan.value) {
+      await store.updatePlan(editingPlan.value.id, data)
+      saveSuccess.value = true
+      setTimeout(() => {
+        saveSuccess.value = false
+        closeDrawer()
+      }, 800)
+    } else {
+      // Un plan créé n'a pas encore de semaine : on ouvre sa page pour les ajouter
+      const created = await store.createPlan(data)
       closeDrawer()
-    }, 800)
+      router.push(`/plans/${created.id}`)
+    }
   } catch {
     saveError.value = 'Erreur lors de la sauvegarde'
   } finally {
     saving.value = false
   }
 }
+
+// ── Duplication d'un plan ────────────────────────────────────────────────────
+const copying = ref<{ planId: number; done: number; total: number } | null>(null)
+
+async function duplicate(plan: Plan, e: Event) {
+  e.stopPropagation()
+  if (copying.value) return
+  copying.value = { planId: plan.id, done: 0, total: 0 }
+  try {
+    await store.duplicatePlan(plan, (done, total) => { copying.value = { planId: plan.id, done, total } })
+    toast.value?.show(`« ${plan.title} » dupliqué en brouillon`)
+  } catch (error) {
+    toast.value?.show(error instanceof Error ? error.message : 'Copie du plan interrompue', 'error')
+  } finally {
+    copying.value = null
+  }
+}
 </script>
 
 <template>
   <div>
-    <h1 class="text-xl font-semibold text-slate-900 mb-6">Plans d'entraînement</h1>
+    <div class="flex items-center justify-between mb-6 max-w-2xl">
+      <h1 class="text-xl font-semibold text-slate-900">Plans d'entraînement</h1>
+      <button
+        @click="openCreate"
+        class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Nouveau plan
+      </button>
+    </div>
 
     <div v-if="store.isLoading" class="text-slate-400 text-sm">Chargement…</div>
     <div v-else-if="store.error" class="text-red-500 text-sm">{{ store.error }}</div>
@@ -117,8 +175,19 @@ async function save() {
               {{ statusLabel[plan.status] ?? plan.status }}
             </span>
             <button
+              @click="duplicate(plan, $event)"
+              :disabled="copying !== null"
+              class="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-0"
+              title="Dupliquer le plan"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+              </svg>
+            </button>
+            <button
               @click="openDrawer(plan, $event)"
-              class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+              class="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
               title="Modifier le plan"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,9 +201,20 @@ async function save() {
           <span>{{ plan.sport }}</span>
           <span>Niveau {{ plan.level }}</span>
           <span v-if="plan.plan_type" class="text-indigo-500 font-medium">{{ planTypeLabel[plan.plan_type] ?? plan.plan_type }}</span>
+          <span v-if="plan.total_weeks">{{ plan.total_weeks }} semaines</span>
           <span v-if="plan.start_date">Début {{ new Date(plan.start_date).toLocaleDateString('fr-FR') }}</span>
         </div>
+
+        <!-- Copie en cours : où elle en est -->
+        <p v-if="copying?.planId === plan.id" role="status" class="mt-3 text-xs font-medium text-indigo-600">
+          Copie en cours…
+          <template v-if="copying.total">semaine {{ Math.min(copying.done + 1, copying.total) }} sur {{ copying.total }}</template>
+        </p>
       </div>
+
+      <p v-if="store.plans.length === 0" class="text-sm text-slate-400 py-8 text-center">
+        Aucun plan — clique sur « Nouveau plan » pour commencer.
+      </p>
     </div>
 
     <!-- Drawer overlay -->
@@ -154,7 +234,7 @@ async function save() {
       >
         <!-- Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 class="font-semibold text-slate-900">Modifier le plan</h2>
+          <h2 class="font-semibold text-slate-900">{{ editingPlan ? 'Modifier le plan' : 'Nouveau plan' }}</h2>
           <button @click="closeDrawer" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -229,18 +309,46 @@ async function save() {
             <p class="mt-1.5 text-xs text-slate-400">Détermine l'affichage des poids Lui/Elle dans l'application mobile.</p>
           </div>
 
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Durée du plan (semaines)</label>
+            <input
+              v-model.number="form.total_weeks"
+              type="number"
+              min="1"
+              max="60"
+              class="w-28 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+            />
+            <p class="mt-1.5 text-xs text-slate-400">Course comprise. La semaine de chaque athlète se calcule depuis sa date de course et cette durée.</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Noms des phases</label>
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                v-for="phase in PHASES"
+                :key="phase"
+                v-model="form.phase_names[phase]"
+                type="text"
+                :placeholder="`Phase ${phase}`"
+                :aria-label="`Nom de la phase ${phase}`"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+              />
+            </div>
+            <p class="mt-1.5 text-xs text-slate-400">Affichés dans l'application à la place des noms par défaut.</p>
+          </div>
+
         </div>
 
         <!-- Footer -->
         <div class="px-6 py-4 border-t border-slate-200 flex items-center gap-3">
           <button
             @click="save"
-            :disabled="saving || !form.title"
+            :disabled="saving || !form.title.trim()"
             class="flex-1 bg-indigo-500 text-white text-sm font-medium py-2 rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <span v-if="saving">Sauvegarde…</span>
             <span v-else-if="saveSuccess">Sauvegardé ✓</span>
-            <span v-else>Sauvegarder</span>
+            <span v-else>{{ editingPlan ? 'Sauvegarder' : 'Créer le plan' }}</span>
           </button>
           <button
             @click="closeDrawer"
@@ -253,6 +361,8 @@ async function save() {
         <p v-if="saveError" class="px-6 pb-4 text-xs text-red-500">{{ saveError }}</p>
       </div>
     </Transition>
+
+    <AppToast ref="toast" />
   </div>
 </template>
 
