@@ -2,6 +2,7 @@
 // Portées de l'app athlète (src/utils/progress.js, setLogs.js) : mêmes règles des deux côtés.
 import { addDays } from './planCalendar.ts'
 import type { PlanState } from './planCalendar.ts'
+import type { SetLogRow } from '../types/index.ts'
 
 export const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] as const
 
@@ -29,14 +30,18 @@ export interface CompletionDetail {
   distanceKm: number | null
 }
 
+// Une série de muscu, ou un tour sur une station (exerciseId ou stationId, jamais les deux)
 export interface ProgressSet {
   exerciseId: number | null
+  stationId?: number | null
+  /** Nom de l'exercice ou de la station */
   name: string | null
   sessionId: number | null
   setNumber: number
   weightKg: number | null
   reps: number | null
   durationSec: number | null
+  distanceM?: number | null
   date: string | null
 }
 
@@ -190,7 +195,31 @@ export function planTimeline(
 
 export const formatNumber = (n: number | null): string => (n == null ? '' : String(n).replace('.', ','))
 
-/** Résumé compact des séries d'un exercice : "62,5 kg × 5, 5, 5, 4", "10, 9 reps", "45, 40 s" */
+/** Série enregistrée (set_logs, exercice et station dépliés) → série du suivi */
+export function toProgressSet(log: SetLogRow): ProgressSet {
+  const ref = (value: SetLogRow['exercise_id'] | undefined) =>
+    (value !== null && typeof value === 'object' ? value : { id: value ?? null, name: null })
+  const exercise = ref(log.exercise_id)
+  const station = ref(log.station_id)
+  return {
+    exerciseId: exercise.id,
+    stationId: station.id,
+    name: exercise.name ?? station.name,
+    sessionId: log.session_id,
+    setNumber: log.set_number,
+    weightKg: log.weight_kg,
+    reps: log.reps,
+    durationSec: log.duration_sec,
+    distanceM: log.distance_m ?? null,
+    date: log.date_created,
+  }
+}
+
+// Ce qu'une série fait travailler : un exercice ou une station, qui ont chacun leur numérotation
+const refOf = (s: ProgressSet): string | null => (s.stationId != null ? `s${s.stationId}` : s.exerciseId != null ? `e${s.exerciseId}` : null)
+const nameOf = (own: ProgressSet[]): string => own.find(s => s.name)?.name ?? (own[0]?.stationId != null ? 'Station' : 'Exercice')
+
+/** Résumé compact des séries d'un exercice : "62,5 kg × 5, 5, 5, 4", "10, 9 reps", "45, 40 s", "24 kg × 30, 40 m" */
 export function summarizeSets(sets: ProgressSet[]): string {
   // Les séries consécutives de même charge sont regroupées
   const groups: { weight: number | null; sets: ProgressSet[] }[] = []
@@ -201,30 +230,31 @@ export function summarizeSets(sets: ProgressSet[]): string {
     else groups.push({ weight, sets: [s] })
   }
   return groups.map(({ weight, sets: own }) => {
-    const timed = own.every(s => s.reps == null && s.durationSec != null)
-    const values = own.map(s => (timed ? s.durationSec : s.reps) ?? '—').join(', ')
-    const unit = timed ? ' s' : weight ? '' : ' reps'
+    // Ce que la série compte : des mètres (portés, ergomètres), des secondes (gainage), sinon des reps
+    const inMeters = own.every(s => s.reps == null && s.distanceM != null)
+    const timed = !inMeters && own.every(s => s.reps == null && s.durationSec != null)
+    const values = own.map(s => (inMeters ? s.distanceM : timed ? s.durationSec : s.reps) ?? '—').join(', ')
+    const unit = inMeters ? ' m' : timed ? ' s' : weight ? '' : ' reps'
     return weight ? `${formatNumber(weight)} kg × ${values}${unit}` : `${values}${unit}`
   }).join(' · ')
 }
 
-/** Séries d'une séance, regroupées par exercice dans l'ordre où ils ont été faits */
-export function sessionSets(sets: ProgressSet[], sessionId: number): { exerciseId: number | null; name: string; summary: string }[] {
-  const byExercise = new Map<number | null, ProgressSet[]>()
+/** Séries d'une séance, regroupées par exercice ou par station dans l'ordre où ils ont été faits */
+export function sessionSets(sets: ProgressSet[], sessionId: number): { key: string; name: string; summary: string }[] {
+  const byRef = new Map<string, ProgressSet[]>()
   for (const s of sets.filter(set => set.sessionId === sessionId).sort(byDate)) {
-    if (!byExercise.has(s.exerciseId)) byExercise.set(s.exerciseId, [])
-    byExercise.get(s.exerciseId)!.push(s)
+    // Exercice et station disparus du catalogue : les séries restent comptées, sous un même intitulé
+    const key = refOf(s) ?? 'inconnu'
+    if (!byRef.has(key)) byRef.set(key, [])
+    byRef.get(key)!.push(s)
   }
-  return [...byExercise].map(([exerciseId, own]) => ({
-    exerciseId,
-    name: own.find(s => s.name)?.name ?? 'Exercice',
-    summary: summarizeSets(own),
-  }))
+  return [...byRef].map(([key, own]) => ({ key, name: nameOf(own), summary: summarizeSets(own) }))
 }
 
-export type LoadUnit = 'kg' | 'reps' | 's'
+export type LoadUnit = 'kg' | 'reps' | 'm' | 's'
 export interface ExerciseProgress {
-  exerciseId: number
+  /** Exercice ("e18") ou station ("s6") */
+  key: string
   name: string
   unit: LoadUnit
   first: number
@@ -235,20 +265,25 @@ export interface ExerciseProgress {
 }
 
 /**
- * Progression par exercice, le plus récemment travaillé d'abord (puis par nom).
- * La valeur d'une séance est sa plus lourde série ; sans charge, le plus de reps ; en gainage, la plus longue tenue.
+ * Progression par exercice et par station, le plus récemment travaillé d'abord (puis par nom).
+ * La valeur d'une séance est sa plus lourde série ; sans charge, le plus de reps, sinon la plus longue distance ;
+ * en gainage, la plus longue tenue.
  */
 export function exerciseProgress(sets: ProgressSet[]): ExerciseProgress[] {
-  const byExercise = new Map<number, ProgressSet[]>()
+  const byRef = new Map<string, ProgressSet[]>()
   for (const set of sets) {
-    if (set.exerciseId == null) continue
-    if (!byExercise.has(set.exerciseId)) byExercise.set(set.exerciseId, [])
-    byExercise.get(set.exerciseId)!.push(set)
+    const key = refOf(set)
+    if (key == null) continue
+    if (!byRef.has(key)) byRef.set(key, [])
+    byRef.get(key)!.push(set)
   }
 
-  const list = [...byExercise].map(([exerciseId, own]): ExerciseProgress => {
-    const unit: LoadUnit = own.some(s => (s.weightKg ?? 0) > 0) ? 'kg' : own.some(s => (s.reps ?? 0) > 0) ? 'reps' : 's'
-    const valueOf = (s: ProgressSet): number => (unit === 'kg' ? s.weightKg : unit === 'reps' ? s.reps : s.durationSec) ?? 0
+  const list = [...byRef].map(([key, own]): ExerciseProgress => {
+    const unit: LoadUnit = own.some(s => (s.weightKg ?? 0) > 0) ? 'kg'
+      : own.some(s => (s.reps ?? 0) > 0) ? 'reps'
+        : own.some(s => (s.distanceM ?? 0) > 0) ? 'm' : 's'
+    const valueOf = (s: ProgressSet): number =>
+      (unit === 'kg' ? s.weightKg : unit === 'reps' ? s.reps : unit === 'm' ? s.distanceM : s.durationSec) ?? 0
 
     // Une série dont la séance a été supprimée (sessionId null) est rattachée à son jour
     const bySession = new Map<string, { date: string | null; value: number }>()
@@ -262,8 +297,8 @@ export function exerciseProgress(sets: ProgressSet[]): ExerciseProgress[] {
     const sessions = [...bySession.values()].sort(byDate)
     const values = sessions.map(s => s.value)
     return {
-      exerciseId,
-      name: own.find(s => s.name)?.name ?? 'Exercice',
+      key,
+      name: nameOf(own),
       unit,
       first: values[0] ?? 0,
       last: values.at(-1) ?? 0,

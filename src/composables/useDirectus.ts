@@ -37,6 +37,16 @@ export function isAuthError(e: unknown): boolean {
   return false
 }
 
+/** Statut HTTP d'une erreur du SDK Directus */
+function statusOf(e: unknown): number | undefined {
+  const error = e as { response?: { status?: number }; status?: number } | null
+  return error?.response?.status ?? error?.status
+}
+
+const SET_LOG_FIELDS = ['id', 'session_id', 'set_number', 'weight_kg', 'reps', 'duration_sec', 'date_created', 'exercise_id.id', 'exercise_id.name']
+// Tours sur une station : champs ajoutés à set_logs par scripts/add-station-logs.cjs (dépôt de l'app athlète)
+const STATION_LOG_FIELDS = ['station_id.id', 'station_id.name', 'distance_m']
+
 /** Champs d'un plan que le CRM sait écrire */
 export interface PlanFields {
   title?: string
@@ -256,16 +266,23 @@ export function useDirectus() {
 
   /** Séries enregistrées d'un athlète, de la plus ancienne à la plus récente, avec le nom de l'exercice */
   async function fetchSetLogs(profileId: number): Promise<SetLogRow[]> {
-    return client.request(
+    const read = (fields: string[]) => client.request(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       readItems('set_logs' as any, {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         filter: { athlete_profile_id: { _eq: profileId } } as any,
-        fields: ['id', 'session_id', 'set_number', 'weight_kg', 'reps', 'duration_sec', 'date_created', 'exercise_id.id', 'exercise_id.name'],
+        fields,
         sort: ['date_created'],
         limit: -1,
       })
     ) as unknown as Promise<SetLogRow[]>
+    try {
+      return await read([...SET_LOG_FIELDS, ...STATION_LOG_FIELDS])
+    } catch (e) {
+      // Directus répond 403 à un champ qu'il n'a pas : tant que le script des stations n'est pas passé, on lit sans eux
+      if (statusOf(e) !== 403) throw e
+      return read(SET_LOG_FIELDS)
+    }
   }
 
   /** Dernière série enregistrée par athlète : { [id du profil]: horodatage } */

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { planStartFor, planStatus, todayIso } from '../src/utils/planCalendar.ts'
 import {
-  weekDays, planTotals, planTimeline, exerciseProgress, summarizeSets, sessionSets, formatHours, formatTonnage,
+  weekDays, planTotals, planTimeline, exerciseProgress, summarizeSets, sessionSets, toProgressSet, formatHours, formatTonnage,
 } from '../src/utils/progress.ts'
 import { toProgressWeeks, trackAthlete, relativeDay, compareTracking } from '../src/utils/tracking.ts'
 import type { Plan, SessionCompletion } from '../src/types/index.ts'
@@ -114,9 +114,62 @@ test('exerciseProgress, sessionSets et summarizeSets résument les séries', () 
     set(10, 'Pull-up', 21, '2026-10-12T18:20:00Z', null, 9, 1),
   ]
   assert.deepEqual(exerciseProgress(sets).map(p => [p.name, p.unit, p.first, p.last, p.sessions]), [['Front Squat', 'kg', 62.5, 65, 2], ['Pull-up', 'reps', 9, 9, 1]])
-  assert.deepEqual(sessionSets(sets, 21), [{ exerciseId: 18, name: 'Front Squat', summary: '65 kg × 5, 4' }, { exerciseId: 10, name: 'Pull-up', summary: '9 reps' }])
+  assert.deepEqual(sessionSets(sets, 21), [{ key: 'e18', name: 'Front Squat', summary: '65 kg × 5, 4' }, { key: 'e10', name: 'Pull-up', summary: '9 reps' }])
   assert.equal(summarizeSets(sets.filter(s => s.sessionId === 11)), '60 kg × 5 · 62,5 kg × 5')
   assert.deepEqual(sessionSets(sets, 99), [])
+})
+
+// ── Tours sur une station (circuits à tours saisis dans l'app athlète) ───────
+const round = (stationId: number, name: string | null, sessionId: number, date: string, weightKg: number | null, distanceM: number | null, setNumber = 1, reps: number | null = null) =>
+  ({ exerciseId: null, stationId, name, sessionId, setNumber, weightKg, reps, durationSec: null, distanceM, date })
+
+test('toProgressSet lit une série de muscu et un tour de station', () => {
+  const log = { id: 1, session_id: 21, set_number: 2, weight_kg: 65, reps: 4, duration_sec: null, date_created: '2026-10-12T18:05:00Z' }
+  assert.deepEqual(toProgressSet({ ...log, exercise_id: { id: 18, name: 'Front Squat' }, station_id: null, distance_m: null }), {
+    exerciseId: 18, stationId: null, name: 'Front Squat', sessionId: 21, setNumber: 2,
+    weightKg: 65, reps: 4, durationSec: null, distanceM: null, date: '2026-10-12T18:05:00Z',
+  })
+  assert.deepEqual(toProgressSet({ ...log, exercise_id: null, station_id: { id: 6, name: 'Farmers Carry' }, weight_kg: 24, reps: null, distance_m: 40 }), {
+    exerciseId: null, stationId: 6, name: 'Farmers Carry', sessionId: 21, setNumber: 2,
+    weightKg: 24, reps: null, durationSec: null, distanceM: 40, date: '2026-10-12T18:05:00Z',
+  })
+  // Directus sans les champs des stations, ou relation non dépliée
+  const bare = toProgressSet({ ...log, exercise_id: 18 })
+  assert.deepEqual([bare.exerciseId, bare.stationId, bare.name, bare.distanceM], [18, null, null, null])
+})
+
+test('les tours de station sont résumés par station, en mètres', () => {
+  const sets = [
+    set(18, 'Front Squat', 292, '2026-10-09T17:00:00Z', 60, 5, 1),
+    round(6, 'Farmers Carry', 292, '2026-10-09T18:00:00Z', 24, 30, 1), round(6, 'Farmers Carry', 292, '2026-10-09T18:03:00Z', 24, 40, 2),
+    round(1, 'SkiErg', 292, '2026-10-09T18:10:00Z', null, 150, 1),
+    round(8, 'Wall Balls', 292, '2026-10-09T18:12:00Z', 6, null, 1, 20),
+    round(6, 'Farmers Carry', 298, '2026-10-16T18:00:00Z', 26, 40, 1),
+  ]
+  assert.deepEqual(sessionSets(sets, 292), [
+    { key: 'e18', name: 'Front Squat', summary: '60 kg × 5' },
+    { key: 's6', name: 'Farmers Carry', summary: '24 kg × 30, 40 m' },
+    { key: 's1', name: 'SkiErg', summary: '150 m' },
+    { key: 's8', name: 'Wall Balls', summary: '6 kg × 20' },
+  ])
+  assert.deepEqual(exerciseProgress(sets).map(p => [p.key, p.name, p.unit, p.first, p.last, p.sessions]), [
+    ['s6', 'Farmers Carry', 'kg', 24, 26, 2],
+    ['e18', 'Front Squat', 'kg', 60, 60, 1],
+    ['s1', 'SkiErg', 'm', 150, 150, 1],
+    ['s8', 'Wall Balls', 'kg', 6, 6, 1],
+  ])
+})
+
+test('une station et un exercice de même numéro ne se mélangent pas, un tour sans nom reste lisible', () => {
+  const sets = [set(6, 'Back Squat', 30, '2026-10-05T18:00:00Z', 80, 5, 1), round(6, null, 30, '2026-10-05T18:20:00Z', null, 60, 1)]
+  assert.deepEqual(sessionSets(sets, 30), [
+    { key: 'e6', name: 'Back Squat', summary: '80 kg × 5' },
+    { key: 's6', name: 'Station', summary: '60 m' },
+  ])
+  // Une ligne dont l'exercice et la station ont disparu du catalogue reste comptée dans sa séance, pas dans les charges
+  const orphan = { exerciseId: null, stationId: null, name: null, sessionId: 30, setNumber: 1, weightKg: 20, reps: 8, durationSec: null, distanceM: null, date: '2026-10-05T18:30:00Z' }
+  assert.deepEqual(sessionSets([orphan], 30), [{ key: 'inconnu', name: 'Exercice', summary: '20 kg × 8' }])
+  assert.deepEqual(exerciseProgress([orphan]), [])
 })
 test('formatHours et formatTonnage', () => {
   assert.deepEqual([formatHours(45), formatHours(580), formatTonnage(850), formatTonnage(14200)], ['45 min', '9 h 40', '850 kg', '14,2 t'])
