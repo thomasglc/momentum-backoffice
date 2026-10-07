@@ -2,6 +2,7 @@
 import { reactive, ref, computed, onMounted } from 'vue'
 import type { BlockStrength, ExerciseCatalog } from '@/types'
 import { useDirectus } from '@/composables/useDirectus'
+import { CATEGORIES, labelOf } from '@/constants/catalog'
 
 const props = defineProps<{ block: BlockStrength; isSaving: boolean }>()
 const emit = defineEmits<{
@@ -56,10 +57,7 @@ const rows = ref<ExerciseRow[]>(
   }))
 )
 
-function formatCategory(raw: string | null): string {
-  if (!raw) return 'Autre'
-  return raw.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
+const formatCategory = (raw: string | null): string => labelOf(CATEGORIES, raw) || 'Autre'
 
 const catalogByCategory = computed(() => {
   const map = new Map<string, ExerciseCatalog[]>()
@@ -213,8 +211,8 @@ function handleSubmit() {
             </div>
           </div>
           <div>
-            <label class="block text-xs text-slate-400 mb-0.5">Label / Note</label>
-            <input v-model="row.note" type="text" placeholder="—"
+            <label class="block text-xs text-slate-400 mb-0.5">Note, en pastilles séparées par « · »</label>
+            <input v-model="row.note" type="text" placeholder="6-8 reps · RIR 2"
               class="w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
           </div>
         </div>
