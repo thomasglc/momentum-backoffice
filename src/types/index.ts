@@ -35,7 +35,7 @@ export interface SessionCompletion {
   distance_km?: number | string | null     // distance, quand elle est notée
 }
 
-// ── Série enregistrée par un athlète (set_logs), exercice déplié
+// ── Série enregistrée par un athlète (set_logs), exercice et station dépliés
 export interface SetLogRow {
   id: number
   session_id: number | null
@@ -45,6 +45,9 @@ export interface SetLogRow {
   reps: number | null
   duration_sec: number | null
   date_created: string | null
+  // Tour sur une station. Champs ajoutés par scripts/add-station-logs.cjs (app athlète) : absents tant qu'il n'est pas passé.
+  station_id?: { id: number; name: string } | number | null
+  distance_m?: number | null
 }
 
 export interface Week {

@@ -5,11 +5,11 @@ import { useDirectus } from '@/composables/useDirectus'
 import { useTrackingStore } from '@/stores/tracking'
 import {
   DAYS, exerciseProgress, formatHours, formatNumber, formatTonnage, planTimeline, sessionDate, sessionSets,
-  totalVolumeKg, weekCompletion,
+  toProgressSet, totalVolumeKg, weekCompletion,
 } from '@/utils/progress'
 import type { ProgressSession, ProgressSet, ProgressWeek, TimelineEntry } from '@/utils/progress'
 import { relativeDay } from '@/utils/tracking'
-import type { SessionType, SetLogRow } from '@/types'
+import type { SessionType } from '@/types'
 import PlanStateBadge from '@/components/tracking/PlanStateBadge.vue'
 import SessionTypeBadge from '@/components/ui/SessionTypeBadge.vue'
 
@@ -24,21 +24,6 @@ const tracking = computed(() => row.value?.tracking ?? null)
 // ── Séries enregistrées de l'athlète ─────────────────────────────────────────
 const sets = shallowRef<ProgressSet[]>([])
 const setsStatus = ref<'loading' | 'ready' | 'error'>('loading')
-
-function toProgressSet(log: SetLogRow): ProgressSet {
-  const exercise = log.exercise_id
-  const expanded = exercise !== null && typeof exercise === 'object'
-  return {
-    exerciseId: expanded ? exercise.id : exercise,
-    name: expanded ? exercise.name : null,
-    sessionId: log.session_id,
-    setNumber: log.set_number,
-    weightKg: log.weight_kg,
-    reps: log.reps,
-    durationSec: log.duration_sec,
-    date: log.date_created,
-  }
-}
 
 async function loadSets() {
   setsStatus.value = 'loading'
@@ -162,7 +147,7 @@ const weeks = computed(() => {
 })
 
 // ── Charges ──────────────────────────────────────────────────────────────────
-const UNIT = { kg: 'kg', reps: 'reps', s: 's' } as const
+const UNIT = { kg: 'kg', reps: 'reps', m: 'm', s: 's' } as const
 const loads = computed(() => exerciseProgress(sets.value).map((load) => {
   const diff = Math.round((load.last - load.first) * 10) / 10
   return {
@@ -276,7 +261,7 @@ const loads = computed(() => exerciseProgress(sets.value).map((load) => {
 
                 <!-- Séries enregistrées pendant la séance -->
                 <ul v-if="item.exercises.length" class="mt-2 ml-8 pl-3 border-l-2 border-slate-100 space-y-0.5">
-                  <li v-for="exercise in item.exercises" :key="exercise.exerciseId ?? exercise.name" class="flex items-baseline gap-2 text-xs">
+                  <li v-for="exercise in item.exercises" :key="exercise.key" class="flex items-baseline gap-2 text-xs">
                     <span class="text-slate-500 w-52 shrink-0 truncate">{{ exercise.name }}</span>
                     <span class="text-slate-800 tabular-nums">{{ exercise.summary }}</span>
                   </li>
@@ -309,7 +294,7 @@ const loads = computed(() => exerciseProgress(sets.value).map((load) => {
             <p v-else-if="setsStatus === 'error'" role="alert" class="px-4 pb-4 text-sm text-red-600">Séries indisponibles pour le moment.</p>
             <p v-else-if="!loads.length" class="px-4 pb-4 text-sm text-slate-500">Aucune série enregistrée.</p>
             <ul v-else class="divide-y divide-slate-100">
-              <li v-for="load in loads" :key="load.exerciseId" class="px-4 py-2.5 flex items-center gap-3">
+              <li v-for="load in loads" :key="load.key" class="px-4 py-2.5 flex items-center gap-3">
                 <div class="flex-1 min-w-0">
                   <p class="text-sm text-slate-900 truncate">{{ load.name }}</p>
                   <p class="text-xs text-slate-500">{{ load.sessions }} {{ load.sessions > 1 ? 'séances' : 'séance' }}</p>
